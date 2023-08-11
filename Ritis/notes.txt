@@ -1,0 +1,19 @@
+
+Graphics Pipeline:
+1) Vertex/Index Buffer
+	- stores points representing triangles
+2) Input Assembler (Fixed Function)
+	- groups vertexes into triangles
+3) Vertex Shader (Programmable via GLSL)
+	- transformations
+3.1) Tessellation and Geometry (Programmable via GLSL)
+	- ignored for now
+4) Rasterization (Fixed Function)
+	- breaks up geometry into fragments for each pixel triangle overlaps
+5) Fragment Shader (Programmable via GLSL)
+	- figures out each fragment based on lighting, color, .etc
+6) Color Blending (Fixed Function)
+	- Mixes multiple fragments in each pixel together
+7) Frame Buffer
+	- end result
+
