@@ -209,8 +209,8 @@ namespace engine {
 		configInfo.rasterizationInfo.depthBiasSlopeFactor = 0.0f;
 
 		configInfo.multisampleInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO; 
-		configInfo.multisampleInfo.sampleShadingEnable = VK_FALSE;			// at each fragment, how many times to sample?
-		configInfo.multisampleInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT; // set higher than 1 => MSAA (multi-sample anti-aliasing)?
+		configInfo.multisampleInfo.sampleShadingEnable = VK_FALSE;					// at each fragment, how many times to sample?
+		configInfo.multisampleInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;	// set higher than 1 => MSAA (multi-sample anti-aliasing)?
 		configInfo.multisampleInfo.minSampleShading = 1.0f;
 		configInfo.multisampleInfo.pSampleMask = nullptr;
 		configInfo.multisampleInfo.alphaToCoverageEnable = VK_FALSE;
