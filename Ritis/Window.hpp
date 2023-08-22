@@ -23,6 +23,7 @@ namespace engine {
 		Window& operator=(const Window&) = delete;		// for RAII
 
 		inline auto shouldClose() -> bool;
+		auto getExtent() -> VkExtent2D;
 		void createWindowSurface(VkInstance, VkSurfaceKHR*);
 	};
 
@@ -40,7 +41,10 @@ namespace engine {
 	auto Window::shouldClose() -> bool {
 		return glfwWindowShouldClose(this->window);
 	}
-	void Window::createWindowSurface(VkInstance instance, VkSurfaceKHR* surface) {
+	auto Window::getExtent() -> VkExtent2D {
+		return { static_cast<uint32_t>(this->width), static_cast<uint32_t>(this->height) };
+	}
+	auto Window::createWindowSurface(VkInstance instance, VkSurfaceKHR* surface) -> void {
 		if (glfwCreateWindowSurface(instance, window, nullptr, surface) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create window surface");
 		}

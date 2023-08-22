@@ -141,6 +141,7 @@
     <ClInclude Include="FirstApp.hpp" />
     <ClInclude Include="Pipeline.hpp" />
     <ClInclude Include="Device.hpp" />
+    <ClInclude Include="SwapChain.hpp" />
     <ClInclude Include="Window.hpp" />
   </ItemGroup>
   <ItemGroup>

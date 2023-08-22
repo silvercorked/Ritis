@@ -13,7 +13,6 @@ namespace engine {
 	struct PipelineConfigInfo {
 		VkViewport									viewport;							// describes how we want to transform our gl_position values to output image
 		VkRect2D									scissor;
-		VkPipelineViewportStateCreateInfo			viewportInfo;
 		VkPipelineInputAssemblyStateCreateInfo		inputAssemblyInfo;
 		VkPipelineRasterizationStateCreateInfo		rasterizationInfo;
 		VkPipelineMultisampleStateCreateInfo		multisampleInfo;
@@ -39,6 +38,7 @@ namespace engine {
 		Pipeline(const Pipeline&) = delete;
 		auto operator=(const Pipeline&) = delete;
 
+		auto bind(VkCommandBuffer commandBuffer) -> void;
 		static auto defaultPipelineConfigInfo(uint32_t width, uint32_t height) -> PipelineConfigInfo;
 	};
 
@@ -117,6 +117,13 @@ namespace engine {
 		vertexInputInfo.pVertexAttributeDescriptions = nullptr;
 		vertexInputInfo.pVertexBindingDescriptions = nullptr;
 
+		VkPipelineViewportStateCreateInfo viewportInfo{};
+		viewportInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+		viewportInfo.viewportCount = 1;												// can have multiple viewports & scissors
+		viewportInfo.pViewports = &config.viewport;
+		viewportInfo.scissorCount = 1;												// but only have one for now
+		viewportInfo.pScissors = &config.scissor;
+
 		// create pipeline object and connect to config
 		VkGraphicsPipelineCreateInfo pipelineInfo{};
 		pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -124,7 +131,7 @@ namespace engine {
 		pipelineInfo.pStages = shaderStages;
 		pipelineInfo.pVertexInputState = &vertexInputInfo;
 		pipelineInfo.pInputAssemblyState = &config.inputAssemblyInfo;
-		pipelineInfo.pViewportState = &config.viewportInfo;
+		pipelineInfo.pViewportState = &viewportInfo;
 		pipelineInfo.pRasterizationState = &config.rasterizationInfo;
 		pipelineInfo.pMultisampleState = &config.multisampleInfo;
 		pipelineInfo.pColorBlendState = &config.colorBlendInfo;
@@ -165,6 +172,13 @@ namespace engine {
 		}
 	}
 
+	auto Pipeline::bind(VkCommandBuffer commandBuffer) -> void {
+		vkCmdBindPipeline(
+			commandBuffer,
+			VK_PIPELINE_BIND_POINT_GRAPHICS,		// VK_PIPELINE_BIND_POINT_COMPUTE & VK_PIPELINE_BIND_POINT_RAY_TRACING
+			this->graphicsPipeline
+		);
+	}
 	auto Pipeline::defaultPipelineConfigInfo(uint32_t width, uint32_t height) -> PipelineConfigInfo {
 		PipelineConfigInfo configInfo{};
 
@@ -181,12 +195,6 @@ namespace engine {
 
 		configInfo.scissor.offset = { 0, 0 };						// anything outside is ignored and not rendered (same as viewport.x, .y
 		configInfo.scissor.extent = { width, height };				// same as width, height => renders full image
-
-		configInfo.viewportInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-		configInfo.viewportInfo.viewportCount = 1;					// can have multiple viewports & scissors
-		configInfo.viewportInfo.pViewports = &configInfo.viewport;
-		configInfo.viewportInfo.scissorCount = 1;					// but only have one for now
-		configInfo.viewportInfo.pScissors = &configInfo.scissor;
 
 		configInfo.rasterizationInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
 		configInfo.rasterizationInfo.depthClampEnable = VK_FALSE;			// if enabled, clamps all Z values to 0-1 (ie, something with -z will be visible)
