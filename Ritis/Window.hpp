@@ -1,9 +1,10 @@
 #pragma once
 
-#define GLFW_INCLUDE__VULKAN
+#define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
 #include <string>
+#include <stdexcept>
 
 namespace engine {
 	class Window {
@@ -22,6 +23,7 @@ namespace engine {
 		Window& operator=(const Window&) = delete;		// for RAII
 
 		inline auto shouldClose() -> bool;
+		void createWindowSurface(VkInstance, VkSurfaceKHR*);
 	};
 
 	Window::Window(int w, int h, std::string name) :
@@ -37,6 +39,11 @@ namespace engine {
 	}
 	auto Window::shouldClose() -> bool {
 		return glfwWindowShouldClose(this->window);
+	}
+	void Window::createWindowSurface(VkInstance instance, VkSurfaceKHR* surface) {
+		if (glfwCreateWindowSurface(instance, window, nullptr, surface) != VK_SUCCESS) {
+			throw std::runtime_error("failed to create window surface");
+		}
 	}
 
 	auto Window::initWindow() -> void {
