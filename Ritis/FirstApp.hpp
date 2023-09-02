@@ -4,6 +4,7 @@
 #include "Pipeline.hpp"
 #include "Device.hpp"
 #include "SwapChain.hpp"
+#include "Model.hpp"
 
 // std
 #include <memory>
@@ -12,6 +13,32 @@
 #include <array>
 
 namespace engine {
+
+	auto nextSierpinski(const std::vector<Model::Vertex>& prev) {
+		std::vector<Model::Vertex> next = {};
+		for (auto i = 0; i < prev.size(); i += 3) { // prev[i][i + 1] and [i + 2] hold the triangl's verticies
+			Model::Vertex avg0_1 = { (prev[i].position + prev[i + 1].position) / 2.0f };
+			Model::Vertex avg0_2 = { (prev[i].position + prev[i + 2].position) / 2.0f };
+			Model::Vertex avg1_2 = { (prev[i + 1].position + prev[i + 2].position) / 2.0f };
+			{	// first triangle
+				next.push_back({ prev[i].position });
+				next.push_back(avg0_1);
+				next.push_back(avg0_2);
+			}
+			{	// second
+				next.push_back({ prev[i + 1].position });
+				next.push_back(avg0_1);
+				next.push_back(avg1_2);
+			}
+			{	// third
+				next.push_back({ prev[i + 2].position });
+				next.push_back(avg0_2);
+				next.push_back(avg1_2);
+			}
+		}
+		return next;
+	}
+
 	class FirstApp {
 		Window window{ WIDTH, HEIGHT, "Hello, World!" };
 		Device device{ window };
@@ -19,7 +46,9 @@ namespace engine {
 		std::unique_ptr<Pipeline> pipeline;
 		VkPipelineLayout pipelineLayout;
 		std::vector<VkCommandBuffer> commandBuffers;
+		std::unique_ptr<Model> model;
 
+		auto loadModels() -> void;
 		auto createPipelineLayout() -> void;
 		auto createPipeline() -> void;
 		auto createCommandBuffers() -> void;
@@ -38,12 +67,25 @@ namespace engine {
 	};
 
 	FirstApp::FirstApp() {
+		this->loadModels();
 		this->createPipelineLayout();
 		this->createPipeline();
 		this->createCommandBuffers();
 	}
 	FirstApp::~FirstApp() {
 		vkDestroyPipelineLayout(this->device.device(), this->pipelineLayout, nullptr);
+	}
+
+	auto FirstApp::loadModels() -> void {
+		std::vector<Model::Vertex> verticies {
+			{ {0.0f, -0.95f} },
+			{ {0.95f, 0.95f} },
+			{ {-0.8f, 0.5f} }
+		};
+		const auto SeirpinskiDepth = 7;
+		for (auto i = 0; i < SeirpinskiDepth; i++)
+			verticies = nextSierpinski(verticies);
+		this->model = std::make_unique<Model>(this->device, verticies);
 	}
 
 	auto FirstApp::createPipelineLayout() -> void {
@@ -159,13 +201,8 @@ namespace engine {
 			// can't have a command buffer that has inline commands and secondary command buffers
 
 			this->pipeline->bind(this->commandBuffers[i]);
-			vkCmdDraw(
-				this->commandBuffers[i],
-				3,					// draw 3 verticies
-				1,					// only 1 instance
-				0,
-				0
-			);
+			this->model->bind(commandBuffers[i]);
+			this->model->draw(commandBuffers[i]);
 
 			vkCmdEndRenderPass(this->commandBuffers[i]); // call End event to transition from Recording to Executable
 			if (vkEndCommandBuffer(this->commandBuffers[i]) != VK_SUCCESS) {

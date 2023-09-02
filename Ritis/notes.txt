@@ -17,3 +17,34 @@ Graphics Pipeline:
 7) Frame Buffer
 	- end result
 
+1) Vertex Buffer Notes
+	- its always an array-like structure, but how elements are grouped needs to be communicated to the pipeline
+		- groupings associate a triangle with it's attributes (position vector, color, .etc)
+		- if only attribute is position in the form of a vec2, then every two elements will be grouped to from a vertex of a triangle.
+		- every 3 vertexes is a triangle.
+		- could also have 2 as position and 3 as color.
+	- interleaving is feasible, but bindings can also be done. 
+		- binding basically make an additional input buffer and can be used to seperate attributes along input vectors.
+		- bindings are created using vertex binding descriptions.
+	- can mix interleaving and bindings.
+		- for instance, binding 0 has the position and color (vec2, vec3) while binding 1 has the normal vector (vec3).
+		- to avoid memory allocation costs in creating buffers per binding, often bindings are packed into a single buffer, but map to different regions in the buffer
+	- vertex attribute descriptions require 4 values:
+		- binding index
+		- location
+		- offset in bytes from vert start
+		- vk format value describing format
+		- example:
+			- color (vec3)
+			- binding = 0 (first buffer),
+				location = 1 (cause vec 2 is at 0),
+				offset = 8 (8 bytes cause vec2 is 8 bytes and is first),
+				format = VK_Format_R32G32B32_SFLOAT
+		- common DataTypes for format:
+			- float: VK_FORMAT_R32SFLOAT
+			- vec2: VK_FORMAT_R32G32SFLOAT
+			- vec3: VK_FORMAT_R32G32B32_SFLOAT
+			- vec4: VK_FORMAT_R32G32B32A32_SFLOAT
+			- ivec2: VK_FORMAT_R32G32_SINT (singed integer)
+			- uvec2: VK_FORMAT_R32G32_UINT (unsigned integer)
+			- double: VK_FORMAT_R64_SFLOAT
