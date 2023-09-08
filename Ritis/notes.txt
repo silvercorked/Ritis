@@ -48,3 +48,23 @@ Graphics Pipeline:
 			- ivec2: VK_FORMAT_R32G32_SINT (singed integer)
 			- uvec2: VK_FORMAT_R32G32_UINT (unsigned integer)
 			- double: VK_FORMAT_R64_SFLOAT
+
+Can send data from vertex shader to fragment shader, but first goes through rasterization.
+layout(location = 0) out vec3 xColor; ------> layout(location = 0) in vec3 fragColor;
+ - Rasterization stage will automatically interpolate any output vertex shader variables
+ using Barycentric Coordinates into the fragment shader stage as in variables.
+Barycentric Coordinates: alpha, beta, gamma
+	let alpha = 1 - beta - gamma
+	then P = alpha * a + beta * b + gamma * c; alpha + beta + gamma = 1
+	b (beta = 1)
+	|
+	|
+	|   P
+	|  /
+	| /
+	a______________________c (gamma = 1)
+	beta & gamma = 0
+	the function P acts as a linear interpolation on the surface of a triangle
+	scaled non orthogonal coordinate system
+		basis vectors (b-a) & (c-a)
+	P is inside the triangle iff 0 < alpha, beta, gamma < 1

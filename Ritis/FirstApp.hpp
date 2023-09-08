@@ -78,11 +78,11 @@ namespace engine {
 
 	auto FirstApp::loadModels() -> void {
 		std::vector<Model::Vertex> verticies {
-			{ {0.0f, -0.95f} },
-			{ {0.95f, 0.95f} },
-			{ {-0.8f, 0.5f} }
+			{ {0.0f, -0.95f}, {1.0f, 0.0f, 0.0f} },
+			{ {0.95f, 0.95f}, {0.0f, 1.0f, 0.0f} },
+			{ {-0.8f, 0.5f}, {0.0f, 0.0f, 1.0f} }
 		};
-		const auto SeirpinskiDepth = 7;
+		const auto SeirpinskiDepth = 0;
 		for (auto i = 0; i < SeirpinskiDepth; i++)
 			verticies = nextSierpinski(verticies);
 		this->model = std::make_unique<Model>(this->device, verticies);
