@@ -12,14 +12,19 @@
 
 namespace engine {
 	struct PipelineConfigInfo {
-		VkViewport									viewport;							// describes how we want to transform our gl_position values to output image
-		VkRect2D									scissor;
+		PipelineConfigInfo() = default;
+		PipelineConfigInfo(const PipelineConfigInfo&) = delete;
+		PipelineConfigInfo& operator=(const PipelineConfigInfo&) = delete;
+		
 		VkPipelineInputAssemblyStateCreateInfo		inputAssemblyInfo;
+		VkPipelineViewportStateCreateInfo			viewportInfo;
 		VkPipelineRasterizationStateCreateInfo		rasterizationInfo;
 		VkPipelineMultisampleStateCreateInfo		multisampleInfo;
 		VkPipelineColorBlendAttachmentState			colorBlendAttachement;
 		VkPipelineColorBlendStateCreateInfo			colorBlendInfo;
 		VkPipelineDepthStencilStateCreateInfo		depthStencilInfo;
+		std::vector<VkDynamicState>					dynamicStateEnables;
+		VkPipelineDynamicStateCreateInfo			dynamicStateInfo;
 		VkPipelineLayout							pipelineLayout			= nullptr;
 		VkRenderPass								renderPass				= nullptr;
 		uint32_t									subpass					= 0;
@@ -37,10 +42,10 @@ namespace engine {
 		Pipeline(Device& device, const std::string& vertFilepath, const std::string& fragFilepath, const PipelineConfigInfo& config);
 		~Pipeline();
 		Pipeline(const Pipeline&) = delete;
-		auto operator=(const Pipeline&) = delete;
+		Pipeline& operator=(const Pipeline&) = delete;
 
 		auto bind(VkCommandBuffer commandBuffer) -> void;
-		static auto defaultPipelineConfigInfo(uint32_t width, uint32_t height) -> PipelineConfigInfo;
+		static auto defaultPipelineConfigInfo(PipelineConfigInfo& configInfo) -> void;
 	};
 
 	Pipeline::Pipeline(
@@ -120,13 +125,6 @@ namespace engine {
 		vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 		vertexInputInfo.pVertexBindingDescriptions = bindingDescriptions.data();
 
-		VkPipelineViewportStateCreateInfo viewportInfo{};
-		viewportInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-		viewportInfo.viewportCount = 1;												// can have multiple viewports & scissors
-		viewportInfo.pViewports = &config.viewport;
-		viewportInfo.scissorCount = 1;												// but only have one for now
-		viewportInfo.pScissors = &config.scissor;
-
 		// create pipeline object and connect to config
 		VkGraphicsPipelineCreateInfo pipelineInfo{};
 		pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -134,12 +132,12 @@ namespace engine {
 		pipelineInfo.pStages = shaderStages;
 		pipelineInfo.pVertexInputState = &vertexInputInfo;
 		pipelineInfo.pInputAssemblyState = &config.inputAssemblyInfo;
-		pipelineInfo.pViewportState = &viewportInfo;
+		pipelineInfo.pViewportState = &config.viewportInfo;
 		pipelineInfo.pRasterizationState = &config.rasterizationInfo;
 		pipelineInfo.pMultisampleState = &config.multisampleInfo;
 		pipelineInfo.pColorBlendState = &config.colorBlendInfo;
 		pipelineInfo.pDepthStencilState = &config.depthStencilInfo;
-		pipelineInfo.pDynamicState = nullptr;
+		pipelineInfo.pDynamicState = &config.dynamicStateInfo;
 
 		pipelineInfo.layout = config.pipelineLayout;
 		pipelineInfo.renderPass = config.renderPass;
@@ -182,22 +180,16 @@ namespace engine {
 			this->graphicsPipeline
 		);
 	}
-	auto Pipeline::defaultPipelineConfigInfo(uint32_t width, uint32_t height) -> PipelineConfigInfo {
-		PipelineConfigInfo configInfo{};
-
+	auto Pipeline::defaultPipelineConfigInfo(PipelineConfigInfo& configInfo) -> void {
 		configInfo.inputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 		configInfo.inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;						// group every 3 verticies into triangle (triangle strip is a notable option)
 		configInfo.inputAssemblyInfo.primitiveRestartEnable = VK_FALSE;										// allows inclusion of seperator when using triangle strip to break strip
 
-		configInfo.viewport.x = 0.0f;								// shape of output viewport
-		configInfo.viewport.y = 0.0f;
-		configInfo.viewport.width = static_cast<float>(width);		// if monitor resolution is 16:9, but user wants 4:3 game res, could multiply by constants here to achieve this?
-		configInfo.viewport.height = static_cast<float>(height);	// can multiply height and width by constants to stretch and squish
-		configInfo.viewport.minDepth = 0.0f;
-		configInfo.viewport.maxDepth = 1.0f;						// z axis
-
-		configInfo.scissor.offset = { 0, 0 };						// anything outside is ignored and not rendered (same as viewport.x, .y
-		configInfo.scissor.extent = { width, height };				// same as width, height => renders full image
+		configInfo.viewportInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+		configInfo.viewportInfo.viewportCount = 1;												// can have multiple viewports & scissors
+		configInfo.viewportInfo.pViewports = nullptr;
+		configInfo.viewportInfo.scissorCount = 1;												// but only have one for now
+		configInfo.viewportInfo.pScissors = nullptr;
 
 		configInfo.rasterizationInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
 		configInfo.rasterizationInfo.depthClampEnable = VK_FALSE;			// if enabled, clamps all Z values to 0-1 (ie, something with -z will be visible)
@@ -250,6 +242,11 @@ namespace engine {
 		configInfo.depthStencilInfo.front = {};
 		configInfo.depthStencilInfo.back = {};
 
-		return configInfo;
+		// configures pipeline to expend a dynamic viewport and dynamic scissor later
+		configInfo.dynamicStateEnables = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
+		configInfo.dynamicStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+		configInfo.dynamicStateInfo.pDynamicStates = configInfo.dynamicStateEnables.data();
+		configInfo.dynamicStateInfo.dynamicStateCount = static_cast<uint32_t>(configInfo.dynamicStateEnables.size());
+		configInfo.dynamicStateInfo.flags = 0;
 	}
 }

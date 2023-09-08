@@ -15,6 +15,7 @@
 #include <limits>
 #include <set>
 #include <stdexcept>
+#include <memory>
 
 namespace engine {
 
@@ -23,10 +24,11 @@ namespace engine {
         static constexpr int MAX_FRAMES_IN_FLIGHT = 2; // max 2 command buffers
 
         SwapChain(Device& deviceRef, VkExtent2D windowExtent);
+        SwapChain(Device& deviceRef, VkExtent2D windowExtent, std::shared_ptr<SwapChain> previous);
         ~SwapChain();
 
         SwapChain(const SwapChain&) = delete;
-        void operator=(const SwapChain&) = delete;
+        SwapChain& operator=(const SwapChain&) = delete;
 
         VkFramebuffer getFrameBuffer(int index) { return swapChainFramebuffers[index]; }
         VkRenderPass getRenderPass() { return renderPass; }
@@ -46,6 +48,7 @@ namespace engine {
         VkResult submitCommandBuffers(const VkCommandBuffer* buffers, uint32_t* imageIndex);
 
     private:
+        void init();
         void createSwapChain();
         void createImageViews();
         void createDepthResources();
@@ -76,6 +79,7 @@ namespace engine {
         VkExtent2D windowExtent;
 
         VkSwapchainKHR swapChain;
+        std::shared_ptr<SwapChain> oldSwapChain;
 
         std::vector<VkSemaphore> imageAvailableSemaphores;
         std::vector<VkSemaphore> renderFinishedSemaphores;
@@ -86,6 +90,16 @@ namespace engine {
 
     SwapChain::SwapChain(Device& deviceRef, VkExtent2D extent)
         : device{ deviceRef }, windowExtent{ extent } {
+        init();
+    }
+    SwapChain::SwapChain(Device& deviceRef, VkExtent2D extent, std::shared_ptr<SwapChain> previous)
+        : device{ deviceRef }, windowExtent{ extent }, oldSwapChain{ previous } {
+        init();
+
+        // clean up old swap chain since it's no longer needed
+        oldSwapChain = nullptr;
+    }
+    void SwapChain::init() {
         createSwapChain();
         createImageViews();
         createRenderPass();
@@ -236,7 +250,9 @@ namespace engine {
         createInfo.presentMode = presentMode;
         createInfo.clipped = VK_TRUE;
 
-        createInfo.oldSwapchain = VK_NULL_HANDLE;
+        createInfo.oldSwapchain = oldSwapChain == nullptr
+            ? VK_NULL_HANDLE
+            : oldSwapChain->swapChain;
 
         if (vkCreateSwapchainKHR(device.device(), &createInfo, nullptr, &swapChain) != VK_SUCCESS) {
             throw std::runtime_error("failed to create swap chain!");
