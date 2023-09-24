@@ -96,9 +96,9 @@ namespace engine {
 
 	auto FirstApp::loadGameObjects() -> void {
 		std::vector<Model::Vertex> verticies {
-			{ {0.0f, 0.0f}, { 1.0f, 0.0f, 0.0f } },
-			{ {0.2f, 0.2f}, {0.0f, 1.0f, 0.0f} },
-			{ {-0.2f, 0.2f}, {0.0f, 0.0f, 1.0f} }
+			{ {0.0f, -0.5f}, { 1.0f, 0.0f, 0.0f } },
+			{ {0.5f, 0.5f}, {0.0f, 1.0f, 0.0f} },
+			{ {-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f} }
 		};
 		//const auto SeirpinskiDepth = 2;
 		//for (auto i = 0; i < SeirpinskiDepth; i++)
@@ -290,15 +290,22 @@ namespace engine {
 			r += 0.01f;
 		}
 		if (r > 4.0f) r = 2.9f;
+		static float prevRotationRate = 0.01; // /100
 		this->pipeline->bind(commandBuffer);
 
 		for (auto& obj : this->gameObjects) {
 			//obj.transform2d.rotation = glm::mod(obj.transform2d.rotation + 0.0001f, glm::two_pi<float>());
-			const float prevY = r == 2.9f ? 0.5 : obj.transform2d.translation.y + 0.5; // scale back from -0.5 to 0.5 -> 0 to 1
+			const float prevInput = prevRotationRate * 50;
 			// start point is 0.5 cause 0 is a sink
-			std::cout << "prevY: " << prevY << " r: " << r << std::endl;
-			obj.transform2d.translation.x = r - 3.5f; // from 2.9 to 4.0 -> -0.6 to 0.5
-			obj.transform2d.translation.y = prevY * r * (1 - prevY) - 0.5; // -0.5 to rescale from 0 to 1 -> -0.5 to 0.5
+			std::cout << "prevInput: " << prevInput << " r: " << r << std::endl;
+			const float nextInput = prevInput * r * (1 - prevInput);
+			const float nextRotationRate = nextInput / 50;
+			if (i == 200 || i == 305 || i == 402 || i == 507 || i == 604 || i == 701 || i == 806 || i == 999) {
+				obj.transform2d.rotation = glm::mod<float>(
+					obj.transform2d.rotation + nextRotationRate, glm::two_pi<float>()
+				);
+			}
+			prevRotationRate = nextRotationRate;
 		}
 
 		for (auto& obj : this->gameObjects) {
