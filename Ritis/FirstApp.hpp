@@ -47,7 +47,7 @@ namespace engine {
 	// vec3 must be aligned to a multiple of 16 by vulkan docs
 	// vec2 takes up 8, so pad 8 more then place vec 3
 	struct SimplePushConstantData {
-		
+		glm::mat2 transform{1.0f};
 		glm::vec2 offset;
 		alignas(16) glm::vec3 color;
 	};
