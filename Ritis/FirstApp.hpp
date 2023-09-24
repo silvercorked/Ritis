@@ -96,9 +96,9 @@ namespace engine {
 
 	auto FirstApp::loadGameObjects() -> void {
 		std::vector<Model::Vertex> verticies {
-			{ {0.0f, -0.5f}, { 1.0f, 0.0f, 0.0f } },
-			{ {0.5f, 0.5f}, {0.0f, 1.0f, 0.0f} },
-			{ {-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f} }
+			{ {0.0f, 0.0f}, { 1.0f, 0.0f, 0.0f } },
+			{ {0.2f, 0.2f}, {0.0f, 1.0f, 0.0f} },
+			{ {-0.2f, 0.2f}, {0.0f, 0.0f, 1.0f} }
 		};
 		//const auto SeirpinskiDepth = 2;
 		//for (auto i = 0; i < SeirpinskiDepth; i++)
@@ -108,9 +108,9 @@ namespace engine {
 		auto triangle = GameObject::createGameObject();
 		triangle.model = model;
 		triangle.color = { 0.1f, 0.8f, 0.1f };
-		triangle.transform2d.translation.x = 0.2f;
-		triangle.transform2d.scale = { 2.0f, 0.5f };
-		triangle.transform2d.rotation = .25f * glm::two_pi<float>();
+		//triangle.transform2d.translation.x = 0.2f;
+		triangle.transform2d.scale = { 1.0f, 1.0f };
+		triangle.transform2d.rotation = 0;//.25f * glm::two_pi<float>();
 
 		this->gameObjects.push_back(std::move(triangle));
 	}
@@ -282,10 +282,26 @@ namespace engine {
 		}
 	}
 	auto FirstApp::renderGameObjects(VkCommandBuffer commandBuffer) -> void {
+		static int i = 0;
+		i++;
+		static float r = 2.9f;
+		if (i == 1000) {
+			i = 0;
+			r += 0.01f;
+		}
+		if (r > 4.0f) r = 2.9f;
 		this->pipeline->bind(commandBuffer);
 
 		for (auto& obj : this->gameObjects) {
-			obj.transform2d.rotation = glm::mod(obj.transform2d.rotation + 0.0001f, glm::two_pi<float>());
+			//obj.transform2d.rotation = glm::mod(obj.transform2d.rotation + 0.0001f, glm::two_pi<float>());
+			const float prevY = r == 2.9f ? 0.5 : obj.transform2d.translation.y + 0.5; // scale back from -0.5 to 0.5 -> 0 to 1
+			// start point is 0.5 cause 0 is a sink
+			std::cout << "prevY: " << prevY << " r: " << r << std::endl;
+			obj.transform2d.translation.x = r - 3.5f; // from 2.9 to 4.0 -> -0.6 to 0.5
+			obj.transform2d.translation.y = prevY * r * (1 - prevY) - 0.5; // -0.5 to rescale from 0 to 1 -> -0.5 to 0.5
+		}
+
+		for (auto& obj : this->gameObjects) {
 			SimplePushConstantData push{};
 			push.offset = obj.transform2d.translation;
 			push.color = obj.color;
