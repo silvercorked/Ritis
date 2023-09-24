@@ -2,13 +2,14 @@
 
 #include "Window.hpp"
 #include "Pipeline.hpp"
+#include "GameObject.hpp"
 #include "Device.hpp"
 #include "SwapChain.hpp"
-#include "Model.hpp"
 
 #define GLM_FORCE_RADIANS					// functions expect radians, not degrees
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE			// Depth buffer values will range from 0 to 1, not -1 to 1
 #include <glm/glm.hpp>
+#include <glm/gtc/constants.hpp>
 
 // std
 #include <memory>
@@ -21,20 +22,20 @@ namespace engine {
 	auto nextSierpinski(const std::vector<Model::Vertex>& prev) {
 		std::vector<Model::Vertex> next = {};
 		for (auto i = 0; i < prev.size(); i += 3) { // prev[i][i + 1] and [i + 2] hold the triangl's verticies
-			glm::vec2 avg0_1 = (prev[i].position + prev[i + 1].position) / 2.0f;
-			glm::vec2 avg0_2 = (prev[i].position + prev[i + 2].position) / 2.0f;
-			glm::vec2 avg1_2 = (prev[i + 1].position + prev[i + 2].position) / 2.0f;
-			{	// first triangle
+			glm::vec2 avg0_1 = (prev[i].position + prev[i + 1].position) / 2.0f; // mid-point between vertex 0 and 1
+			glm::vec2 avg0_2 = (prev[i].position + prev[i + 2].position) / 2.0f; // mid-point between vertex 0 and 2
+			glm::vec2 avg1_2 = (prev[i + 1].position + prev[i + 2].position) / 2.0f; // mid-point between vertex 1 and 2
+			{	// first triangle (0th vertex + 01 midpoint + 02 midpoint)
 				next.push_back({ prev[i].position , prev[i].color });
 				next.push_back({ avg0_1, prev[i + 1].color });
 				next.push_back({ avg0_2, prev[i + 2].color });
 			}
-			{	// second
+			{	// second (1st vertex + 01 midpoint + 12 midpoint)
 				next.push_back({ prev[i + 1].position , prev[i + 1].color });
 				next.push_back({ avg0_1, prev[i].color });
 				next.push_back({ avg1_2, prev[i + 2].color });
 			}
-			{	// third
+			{	// third (2nd vertex + 02 midpoint + 12 midpoint)
 				next.push_back({ prev[i + 2].position , prev[i + 2].color });
 				next.push_back({ avg0_2, prev[i].color });
 				next.push_back({ avg1_2, prev[i + 1].color });
@@ -59,9 +60,9 @@ namespace engine {
 		std::unique_ptr<Pipeline> pipeline;
 		VkPipelineLayout pipelineLayout;
 		std::vector<VkCommandBuffer> commandBuffers;
-		std::unique_ptr<Model> model;
+		std::vector<GameObject> gameObjects;
 
-		auto loadModels() -> void;
+		auto loadGameObjects() -> void;
 		auto createPipelineLayout() -> void;
 		auto createPipeline() -> void;
 		auto createCommandBuffers() -> void;
@@ -69,6 +70,7 @@ namespace engine {
 		auto drawFrame() -> void;
 		auto recreateSwapChain() -> void;
 		auto recordCommandBuffer(int) -> void;
+		auto renderGameObjects(VkCommandBuffer) -> void;
 	public:
 		static constexpr int WIDTH = 800;
 		static constexpr int HEIGHT = 600;
@@ -83,7 +85,7 @@ namespace engine {
 	};
 
 	FirstApp::FirstApp() {
-		this->loadModels();
+		this->loadGameObjects();
 		this->createPipelineLayout();
 		this->recreateSwapChain(); // calls create pipeline
 		this->createCommandBuffers();
@@ -92,16 +94,25 @@ namespace engine {
 		vkDestroyPipelineLayout(this->device.device(), this->pipelineLayout, nullptr);
 	}
 
-	auto FirstApp::loadModels() -> void {
+	auto FirstApp::loadGameObjects() -> void {
 		std::vector<Model::Vertex> verticies {
-			{ {0.0f, -0.3f}, {1.0f, 0.0f, 0.0f} },
-			{ {0.2f, -0.1f}, {0.0f, 1.0f, 0.0f} },
-			{ {-0.2f, -0.1f}, {0.0f, 0.0f, 1.0f} }
+			{ {0.0f, -0.5f}, { 1.0f, 0.0f, 0.0f } },
+			{ {0.5f, 0.5f}, {0.0f, 1.0f, 0.0f} },
+			{ {-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f} }
 		};
 		//const auto SeirpinskiDepth = 2;
 		//for (auto i = 0; i < SeirpinskiDepth; i++)
 		//	verticies = nextSierpinski(verticies);
-		this->model = std::make_unique<Model>(this->device, verticies);
+		auto model = std::make_shared<Model>(this->device, verticies);
+
+		auto triangle = GameObject::createGameObject();
+		triangle.model = model;
+		triangle.color = { 0.1f, 0.8f, 0.1f };
+		triangle.transform2d.translation.x = 0.2f;
+		triangle.transform2d.scale = { 2.0f, 0.5f };
+		triangle.transform2d.rotation = .25f * glm::two_pi<float>();
+
+		this->gameObjects.push_back(std::move(triangle));
 	}
 
 	auto FirstApp::createPipelineLayout() -> void {
@@ -213,9 +224,6 @@ namespace engine {
 		this->commandBuffers.clear();
 	}
 	auto FirstApp::recordCommandBuffer(int imageIndex) -> void {
-		static int frame = 0;
-		frame = (frame + 1) % 10000;
-
 		VkCommandBufferBeginInfo beginInfo{};
 		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
@@ -265,31 +273,34 @@ namespace engine {
 		vkCmdSetScissor(commandBuffers[imageIndex], 0, 1, &scissor);		// set scissor just before executing each frame
 		// 0 for viewport index, 1 for viewport count
 
-		this->pipeline->bind(this->commandBuffers[imageIndex]);
-		this->model->bind(commandBuffers[imageIndex]);
-		for (int j = 0; j < 4; j++) {
+		this->renderGameObjects(commandBuffers[imageIndex]);
+		
+
+		vkCmdEndRenderPass(this->commandBuffers[imageIndex]); // call End event to transition from Recording to Executable
+		if (vkEndCommandBuffer(this->commandBuffers[imageIndex]) != VK_SUCCESS) {
+			throw std::runtime_error("failed to transition command buffer to executable state");
+		}
+	}
+	auto FirstApp::renderGameObjects(VkCommandBuffer commandBuffer) -> void {
+		this->pipeline->bind(commandBuffer);
+
+		for (auto& obj : this->gameObjects) {
+			obj.transform2d.rotation = glm::mod(obj.transform2d.rotation + 0.0001f, glm::two_pi<float>());
 			SimplePushConstantData push{};
-			const float half = (frame - j * 150) / 5000.0f;
-			const float frameXOff = cos(half * 3.14);
-			const float frameYOff = sin(half * 3.14);
-			push.offset = { frameXOff * 0.5f, frameYOff * 0.5f };
-			push.color = { 0.0f, 0.0f, 0.2f + 0.2f * j };
+			push.offset = obj.transform2d.translation;
+			push.color = obj.color;
+			push.transform = obj.transform2d.mat2();
 
 			vkCmdPushConstants(
-				commandBuffers[imageIndex],
+				commandBuffer,
 				pipelineLayout,
 				VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
 				0,
 				sizeof(SimplePushConstantData),
 				&push
 			);
-			this->model->draw(commandBuffers[imageIndex]); // draw 4 duplicates differing on push constants
-		}
-		
-
-		vkCmdEndRenderPass(this->commandBuffers[imageIndex]); // call End event to transition from Recording to Executable
-		if (vkEndCommandBuffer(this->commandBuffers[imageIndex]) != VK_SUCCESS) {
-			throw std::runtime_error("failed to transition command buffer to executable state");
+			obj.model->bind(commandBuffer);
+			obj.model->draw(commandBuffer);
 		}
 	}
 	auto FirstApp::drawFrame() -> void {
