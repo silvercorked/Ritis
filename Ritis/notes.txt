@@ -68,3 +68,14 @@ Barycentric Coordinates: alpha, beta, gamma
 	scaled non orthogonal coordinate system
 		basis vectors (b-a) & (c-a)
 	P is inside the triangle iff 0 < alpha, beta, gamma < 1
+
+Push Constants (alternative to descriptor sets and uniform buffers)
+	- method of sending small amount of constant data to a shader rather than writes to memory or copy commands
+	- can effectively be used to make duplicate draws with variations based on push constants (color for instance)
+	- only 128 bytes guarenteed to be avilable for push constants (in vulkan). Some devices may give more, but depends.
+	- Push Contant Range
+		- Stage Flags
+		- Offset
+		- Size
+		- Note: maxPushConstantsSize memory capacity is shared between all shader stages
+			- one shared 128 byte push constant, or two 64 byte push contants (one for vertex and one for fragment), or another combination

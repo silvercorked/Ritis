@@ -6,6 +6,10 @@
 #include "SwapChain.hpp"
 #include "Model.hpp"
 
+#define GLM_FORCE_RADIANS					// functions expect radians, not degrees
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE			// Depth buffer values will range from 0 to 1, not -1 to 1
+#include <glm/glm.hpp>
+
 // std
 #include <memory>
 #include <vector>
@@ -17,27 +21,36 @@ namespace engine {
 	auto nextSierpinski(const std::vector<Model::Vertex>& prev) {
 		std::vector<Model::Vertex> next = {};
 		for (auto i = 0; i < prev.size(); i += 3) { // prev[i][i + 1] and [i + 2] hold the triangl's verticies
-			Model::Vertex avg0_1 = { (prev[i].position + prev[i + 1].position) / 2.0f };
-			Model::Vertex avg0_2 = { (prev[i].position + prev[i + 2].position) / 2.0f };
-			Model::Vertex avg1_2 = { (prev[i + 1].position + prev[i + 2].position) / 2.0f };
+			glm::vec2 avg0_1 = (prev[i].position + prev[i + 1].position) / 2.0f;
+			glm::vec2 avg0_2 = (prev[i].position + prev[i + 2].position) / 2.0f;
+			glm::vec2 avg1_2 = (prev[i + 1].position + prev[i + 2].position) / 2.0f;
 			{	// first triangle
-				next.push_back({ prev[i].position });
-				next.push_back(avg0_1);
-				next.push_back(avg0_2);
+				next.push_back({ prev[i].position , prev[i].color });
+				next.push_back({ avg0_1, prev[i + 1].color });
+				next.push_back({ avg0_2, prev[i + 2].color });
 			}
 			{	// second
-				next.push_back({ prev[i + 1].position });
-				next.push_back(avg0_1);
-				next.push_back(avg1_2);
+				next.push_back({ prev[i + 1].position , prev[i + 1].color });
+				next.push_back({ avg0_1, prev[i].color });
+				next.push_back({ avg1_2, prev[i + 2].color });
 			}
 			{	// third
-				next.push_back({ prev[i + 2].position });
-				next.push_back(avg0_2);
-				next.push_back(avg1_2);
+				next.push_back({ prev[i + 2].position , prev[i + 2].color });
+				next.push_back({ avg0_2, prev[i].color });
+				next.push_back({ avg1_2, prev[i + 1].color });
 			}
 		}
 		return next;
 	}
+
+	// push constants have a particular memory layout,
+	// vec3 must be aligned to a multiple of 16 by vulkan docs
+	// vec2 takes up 8, so pad 8 more then place vec 3
+	struct SimplePushConstantData {
+		
+		glm::vec2 offset;
+		alignas(16) glm::vec3 color;
+	};
 
 	class FirstApp {
 		Window window{ WIDTH, HEIGHT, "Hello, World!" };
@@ -81,25 +94,29 @@ namespace engine {
 
 	auto FirstApp::loadModels() -> void {
 		std::vector<Model::Vertex> verticies {
-			{ {0.0f, -0.95f}, {1.0f, 0.0f, 0.0f} },
-			{ {0.95f, 0.95f}, {0.0f, 1.0f, 0.0f} },
-			{ {-0.8f, 0.5f}, {0.0f, 0.0f, 1.0f} }
+			{ {0.0f, -0.3f}, {1.0f, 0.0f, 0.0f} },
+			{ {0.2f, -0.1f}, {0.0f, 1.0f, 0.0f} },
+			{ {-0.2f, -0.1f}, {0.0f, 0.0f, 1.0f} }
 		};
-		//const auto SeirpinskiDepth = 0;
+		//const auto SeirpinskiDepth = 2;
 		//for (auto i = 0; i < SeirpinskiDepth; i++)
 		//	verticies = nextSierpinski(verticies);
 		this->model = std::make_unique<Model>(this->device, verticies);
 	}
 
 	auto FirstApp::createPipelineLayout() -> void {
+		VkPushConstantRange pushConstantRange{};
+		pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT; // both vertex and fragment shader
+		pushConstantRange.offset = 0;
+		pushConstantRange.size = sizeof(SimplePushConstantData);
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 
 		pipelineLayoutInfo.setLayoutCount = 0;						// empty layout, layouts can be used to send additional data
 		pipelineLayoutInfo.pSetLayouts = nullptr;					// to vertex and fragment shaders (textures, uniform buffer objs, .etc)
 
-		pipelineLayoutInfo.pushConstantRangeCount = 0;				// method of sending small amounts of data to shader programs
-		pipelineLayoutInfo.pPushConstantRanges = nullptr;
+		pipelineLayoutInfo.pushConstantRangeCount = 1;				// method of sending small amounts of data to shader programs
+		pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
 
 		if (
 			vkCreatePipelineLayout(
@@ -196,6 +213,9 @@ namespace engine {
 		this->commandBuffers.clear();
 	}
 	auto FirstApp::recordCommandBuffer(int imageIndex) -> void {
+		static int frame = 0;
+		frame = (frame + 1) % 10000;
+
 		VkCommandBufferBeginInfo beginInfo{};
 		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
@@ -221,7 +241,7 @@ namespace engine {
 		renderPassInfo.renderArea.extent = this->swapChain->getSwapChainExtent();
 
 		std::array<VkClearValue, 2> clearValues{};
-		clearValues[0].color = { 0.1f, 0.1f, 0.1f, 0.1f };
+		clearValues[0].color = { 0.01f, 0.01f, 0.01f, 1.0f };
 		clearValues[1].depthStencil = { 1.0f, 0 };
 		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
 		renderPassInfo.pClearValues = clearValues.data();
@@ -247,7 +267,25 @@ namespace engine {
 
 		this->pipeline->bind(this->commandBuffers[imageIndex]);
 		this->model->bind(commandBuffers[imageIndex]);
-		this->model->draw(commandBuffers[imageIndex]);
+		for (int j = 0; j < 4; j++) {
+			SimplePushConstantData push{};
+			const float half = (frame - j * 150) / 5000.0f;
+			const float frameXOff = cos(half * 3.14);
+			const float frameYOff = sin(half * 3.14);
+			push.offset = { frameXOff * 0.5f, frameYOff * 0.5f };
+			push.color = { 0.0f, 0.0f, 0.2f + 0.2f * j };
+
+			vkCmdPushConstants(
+				commandBuffers[imageIndex],
+				pipelineLayout,
+				VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+				0,
+				sizeof(SimplePushConstantData),
+				&push
+			);
+			this->model->draw(commandBuffers[imageIndex]); // draw 4 duplicates differing on push constants
+		}
+		
 
 		vkCmdEndRenderPass(this->commandBuffers[imageIndex]); // call End event to transition from Recording to Executable
 		if (vkEndCommandBuffer(this->commandBuffers[imageIndex]) != VK_SUCCESS) {
