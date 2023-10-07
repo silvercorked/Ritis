@@ -47,6 +47,10 @@ namespace engine {
         VkResult acquireNextImage(uint32_t* imageIndex);
         VkResult submitCommandBuffers(const VkCommandBuffer* buffers, uint32_t* imageIndex);
 
+        bool compareSwapFormats(const SwapChain& swapChain) const { // if true, this and given are compatibly SwapChains
+            return swapChain.swapChainDepthFormat == swapChainDepthFormat && swapChain.swapChainImageFormat == swapChainImageFormat;
+        }
+
     private:
         void init();
         void createSwapChain();
@@ -64,6 +68,7 @@ namespace engine {
         VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 
         VkFormat swapChainImageFormat;
+        VkFormat swapChainDepthFormat;
         VkExtent2D swapChainExtent;
 
         std::vector<VkFramebuffer> swapChainFramebuffers;
@@ -379,6 +384,7 @@ namespace engine {
 
     void SwapChain::createDepthResources() {
         VkFormat depthFormat = findDepthFormat();
+        swapChainDepthFormat = depthFormat;
         VkExtent2D swapChainExtent = getSwapChainExtent();
 
         depthImages.resize(imageCount());

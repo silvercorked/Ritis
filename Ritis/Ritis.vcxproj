@@ -143,6 +143,8 @@
     <ClInclude Include="Pipeline.hpp" />
     <ClInclude Include="Device.hpp" />
     <ClInclude Include="Model.hpp" />
+    <ClInclude Include="Renderer.hpp" />
+    <ClInclude Include="SimpleRenderSystem.hpp" />
     <ClInclude Include="SwapChain.hpp" />
     <ClInclude Include="Window.hpp" />
   </ItemGroup>

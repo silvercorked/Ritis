@@ -13,10 +13,10 @@ namespace engine {
 		float rotation;				// rotation (radians)
 		glm::mat2 mat2() {
 			const float c = glm::cos(this->rotation);
-			const float s = glm::sin(this->rotation);
-			glm::mat2 rotationMat{			// [ cos(t)  -sin(t) ] // rotation matrix
-				{ c, s },					// [ sin(t)   cos(t) ]
-				{ -s, c }
+			const float s = glm::sin(this->rotation); // rotation matrix
+			glm::mat2 rotationMat{			// [[ cos(t)  [ -sin(t)		aka	[ cos(t)   -sin(t)
+				{ c, s },					//  sin(t) ],   cos(t) ]]         sin(t)    cos(t) ]
+				{ -s, c }					// sub elems are columns, not rows
 			};
 			glm::mat2 scaleMat{				// [ Sx   0  ] // scale transformation matrix
 				{this->scale.x, 0},			// [ 0    Sy ]
