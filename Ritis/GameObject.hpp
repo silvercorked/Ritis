@@ -7,6 +7,11 @@
 
 namespace engine {
 
+	struct RigidBody2dComponent {
+		glm::vec2 velocity;
+		float mass{ 1.0f };
+	};
+
 	struct Transform2dComponent {
 		glm::vec2 translation{};	// position offset
 		glm::vec2 scale{1.f, 1.f};	// scale
@@ -48,6 +53,7 @@ namespace engine {
 		std::shared_ptr<Model> model{};
 		glm::vec3 color{};
 		Transform2dComponent transform2d{};
+		RigidBody2dComponent rigidBody2d{};
 		
 	private:
 		id_t id;
