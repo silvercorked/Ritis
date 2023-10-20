@@ -20,7 +20,7 @@ namespace engine {
 		uint32_t vertexCount;
 	public:
 		struct Vertex {
-			glm::vec2 position;
+			glm::vec3 position;
 			glm::vec3 color;
 			
 			static auto getBindingDescriptions() -> std::vector<VkVertexInputBindingDescription>;
@@ -108,7 +108,7 @@ namespace engine {
 		std::vector<VkVertexInputAttributeDescription> attributeDescriptions(2);
 		attributeDescriptions[0].binding = 0;
 		attributeDescriptions[0].location = 0;
-		attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
+		attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
 		attributeDescriptions[0].offset = offsetof(Vertex, position); // useful macro to know
 
 		attributeDescriptions[1].binding = 0; // interleaving, so binding same
