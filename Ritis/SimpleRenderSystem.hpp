@@ -15,6 +15,8 @@
 #include <stdexcept>
 #include <array>
 
+#include "Camera.hpp"
+
 namespace engine {
 
 	// push constants have a particular memory layout,
@@ -40,7 +42,7 @@ namespace engine {
 		SimpleRenderSystem(const SimpleRenderSystem&) = delete;
 		SimpleRenderSystem& operator=(const SimpleRenderSystem&) = delete;
 
-		auto renderGameObjects(VkCommandBuffer, std::vector<GameObject>&) -> void;
+		auto renderGameObjects(VkCommandBuffer, std::vector<GameObject>&, const Camera&) -> void;
 		auto run() -> void;
 	};
 
@@ -91,7 +93,7 @@ namespace engine {
 			pipelineConfig
 		);
 	}
-	auto SimpleRenderSystem::renderGameObjects(VkCommandBuffer commandBuffer, std::vector<GameObject>& gameObjects) -> void {
+	auto SimpleRenderSystem::renderGameObjects(VkCommandBuffer commandBuffer, std::vector<GameObject>& gameObjects, const Camera& camera) -> void {
 		this->pipeline->bind(commandBuffer);
 
 		for (auto& obj : gameObjects) {
@@ -100,7 +102,7 @@ namespace engine {
 
 			SimplePushConstantData push{};
 			push.color = obj.color;
-			push.transform = obj.transform.mat4();
+			push.transform = camera.getProjection() * obj.transform.mat4();
 
 			vkCmdPushConstants(
 				commandBuffer,

@@ -138,6 +138,7 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Camera.hpp" />
     <ClInclude Include="FirstApp.hpp" />
     <ClInclude Include="GameObject.hpp" />
     <ClInclude Include="Pipeline.hpp" />

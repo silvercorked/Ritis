@@ -47,6 +47,9 @@ namespace engine {
 		auto getSwapChainRenderPass() const -> VkRenderPass {
 			return this->swapChain->getRenderPass();
 		}
+		auto getAspectRatio() const -> float {
+			return this->swapChain->extentAspectRatio();
+		}
 		auto isFrameInProgress() const -> bool {
 			return this->isFrameStarted;
 		}

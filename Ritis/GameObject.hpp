@@ -36,9 +36,9 @@ namespace engine {
 			const float s1 = glm::sin(rotation.y);
 			return glm::mat4{
 				{ // col 1
-					scale.x* (c1* c3 + s1 * s2 * s3),		// a
-					scale.x* (c2* s3),						// d
-					scale.x* (c1* s2* s3 - c3 * s1),		// g
+					scale.x* (c1 * c3 + s1 * s2 * s3),		// a
+					scale.x* (c2 * s3),						// d
+					scale.x* (c1 * s2 * s3 - c3 * s1),		// g
 					0.0f									// 0
 				},
 				{

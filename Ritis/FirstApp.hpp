@@ -4,6 +4,7 @@
 #include "GameObject.hpp"
 #include "Renderer.hpp"
 #include "SimpleRenderSystem.hpp"
+#include "Camera.hpp"
 
 #define GLM_FORCE_RADIANS					// functions expect radians, not degrees
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE			// Depth buffer values will range from 0 to 1, not -1 to 1
@@ -131,18 +132,23 @@ namespace engine {
 		std::shared_ptr<Model> model = createCubeModel(this->device, { 0.0f, 0.0f, 0.0f });
 		auto cube = GameObject::createGameObject();
 		cube.model = model;
-		cube.transform.translation = { 0.0f, 0.0f, 0.5f };
+		cube.transform.translation = { 0.0f, 0.0f, 2.5f };
 		cube.transform.scale = { 0.5f, 0.5f, 0.5f };
 
 		this->gameObjects.push_back(std::move(cube));
 	}
 	auto FirstApp::run() -> void {
 		SimpleRenderSystem simpleRenderSystem{ this->device, this->renderer.getSwapChainRenderPass() };
+		Camera camera{};
 		while (!this->window.shouldClose()) {
 			glfwPollEvents();
+			float aspect = this->renderer.getAspectRatio();
+			//camera.setOrthographicProjection(-aspect, aspect, -1, 1, -1, 1);
+			camera.setPerspectiveProjection(glm::radians(50.0f), aspect, 0.1f, 10);
+
 			if (auto commandBuffer = this->renderer.beginFrame()) {
 				this->renderer.beginSwapChainRenderPass(commandBuffer);
-				simpleRenderSystem.renderGameObjects(commandBuffer, this->gameObjects);
+				simpleRenderSystem.renderGameObjects(commandBuffer, this->gameObjects, camera);
 				this->renderer.endSwapChainRenderPass(commandBuffer);
 				this->renderer.endFrame();
 			}
