@@ -7,37 +7,18 @@
 #include <cassert>
 #include <limits>
 
-namespace engine {
-	class Camera {
-		glm::mat4 projectionMatrix{1.0f};
+/*
+	Transformation order:
+	1) Model transform (from object space to world space)
+	2) Camera transform (to camera space)
+	3) Projection transform (to canonical view volume)
+	4) Viewport transform (to viewport)
 
-	public:
-		auto setOrthographicProjection(float left, float right, float top, float bottom, float near, float far) -> void;
-		auto setPerspectiveProjection(float fovy, float aspect, float near, float far) -> void;
-
-		const glm::mat4& getProjection() const { return this->projectionMatrix; }
-	};
-
-	auto Camera::setOrthographicProjection(float left, float right, float top, float bottom, float near, float far) -> void {
-		this->projectionMatrix = glm::mat4{ 1.0f };
-		this->projectionMatrix[0][0] = 2.0f / (right - left);
-		this->projectionMatrix[1][1] = 2.0f / (bottom - top);
-		this->projectionMatrix[2][2] = 1.0f / (far - near);
-		this->projectionMatrix[3][0] = -(right + left) / (right - left);
-		this->projectionMatrix[3][1] = -(bottom + top) / (bottom - top);
-		this->projectionMatrix[3][2] = -near / (far - near);
-	}
-	auto Camera::setPerspectiveProjection(float fovy, float aspect, float near, float far) -> void {
-		assert(glm::abs(aspect - std::numeric_limits<float>::epsilon()) > 0.0f);
-		const float tanHalfFovY = tan(fovy / 2.0f);
-		this->projectionMatrix = glm::mat4{ 0.0f };
-		this->projectionMatrix[0][0] = 1.0f / (aspect * tanHalfFovY);
-		this->projectionMatrix[1][1] = 1.0f / (tanHalfFovY);
-		this->projectionMatrix[2][2] = far / (far - near);
-		this->projectionMatrix[2][3] = 1.0f;
-		this->projectionMatrix[3][2] = -(far * near) / (far - near);
-	}
-}
+	- model defined in object space
+	- Transform Component in GameObject.hpp performs step 1 (model transformation matrix)
+	- camera applies projection transformation
+	- vulkan handles the viewport transform (i think)
+*/
 
 /*
 	Ray tracing is pixel order rendering
@@ -88,12 +69,12 @@ namespace engine {
 	Perspective matrix:
 	- square frustum
 	- map to orthographic view volume
-	                                         |
-	                               . target  |
+											 |
+								   . target  |
 			   ys 	               |y        | far plane (no rendering past here
 	viewer .___|___________________|_________|
-	         n |          z                  |
-               viewing plane
+			 n |          z                  |
+			   viewing plane
 		ys / n = y / z by similar triangles
 		ys = n * y / z
 		// same idea in x direction
@@ -147,3 +128,96 @@ namespace engine {
 	 [ 0                     0                f/(f-n) -f*n/(f-n) ]
 	 [ 0                     0                1        0         ]] // final form of perspective projection matrix for vulkan
 */
+
+namespace engine {
+	class Camera {
+		glm::mat4 projectionMatrix{1.0f};
+		glm::mat4 viewMatrix{1.0f};
+
+	public:
+		auto setOrthographicProjection(float left, float right, float top, float bottom, float near, float far) -> void;
+		auto setPerspectiveProjection(float fovy, float aspect, float near, float far) -> void;
+
+		auto setViewDirection(glm::vec3 position, glm::vec3 dir, glm::vec3 up = glm::vec3{0.0f, -1.0f, 0.0f}) -> void;
+		auto setViewTarget(glm::vec3 position, glm::vec3 target, glm::vec3 up = glm::vec3{ 0.0f, -1.0f, 0.0f }) -> void;
+		auto setViewYXZ(glm::vec3 position, glm::vec3 rotation) -> void;
+
+		auto getProjection() const -> const glm::mat4& { return this->projectionMatrix; }
+		auto getView() const -> const glm::mat4& { return this->viewMatrix; }
+	};
+
+	auto Camera::setOrthographicProjection(float left, float right, float top, float bottom, float near, float far) -> void {
+		this->projectionMatrix = glm::mat4{ 1.0f };
+		this->projectionMatrix[0][0] = 2.0f / (right - left);
+		this->projectionMatrix[1][1] = 2.0f / (bottom - top);
+		this->projectionMatrix[2][2] = 1.0f / (far - near);
+		this->projectionMatrix[3][0] = -(right + left) / (right - left);
+		this->projectionMatrix[3][1] = -(bottom + top) / (bottom - top);
+		this->projectionMatrix[3][2] = -near / (far - near);
+	}
+	auto Camera::setPerspectiveProjection(float fovy, float aspect, float near, float far) -> void {
+		assert(glm::abs(aspect - std::numeric_limits<float>::epsilon()) > 0.0f);
+		const float tanHalfFovY = tan(fovy / 2.0f);
+		this->projectionMatrix = glm::mat4{ 0.0f };
+		this->projectionMatrix[0][0] = 1.0f / (aspect * tanHalfFovY);
+		this->projectionMatrix[1][1] = 1.0f / (tanHalfFovY);
+		this->projectionMatrix[2][2] = far / (far - near);
+		this->projectionMatrix[2][3] = 1.0f;
+		this->projectionMatrix[3][2] = -(far * near) / (far - near);
+	}
+	/*
+		[[ u.x u.y u.z 0 ]^-1  [[ 1 0 0 -p.x ]
+		 [ v.x v.y v.z 0 ]      [ 0 1 0 -p.y ]
+		 [ w.x w.y w.z 0 ]      [ 0 0 1 -p.z ]
+	   	 [ 0   0   0   1 ]]     [ 0 0 0  1   ]] // rotation * translation = camera transformation
+		 // inverse rotation because rotating from that angle back to canonical direction
+		 // transform is negative, because camera position is in world space, and we're moving it back to the origin
+	*/
+	auto Camera::setViewDirection(glm::vec3 position, glm::vec3 dir, glm::vec3 up) -> void {
+		assert((dir != glm::vec3{0} && "Camera.setViewDirection: Invalid direction. No direction given by zero vector."));
+		const glm::vec3 w{glm::normalize(dir)};
+		const glm::vec3 u{glm::normalize(glm::cross(w, up))};
+		const glm::vec3 v{glm::cross(w, u)}; // construct orthonormal basis (unit length and orthogonal to eachother
+
+		this->viewMatrix = glm::mat4{ 1.0f };
+		this->viewMatrix[0][0] = u.x;
+		this->viewMatrix[1][0] = u.y;
+		this->viewMatrix[2][0] = u.z;
+		this->viewMatrix[0][1] = v.x;
+		this->viewMatrix[1][1] = v.y;
+		this->viewMatrix[2][1] = v.z;
+		this->viewMatrix[0][2] = w.x;
+		this->viewMatrix[1][2] = w.y;
+		this->viewMatrix[2][2] = w.z;
+		this->viewMatrix[3][0] = -glm::dot(u, position);
+		this->viewMatrix[3][1] = -glm::dot(v, position);
+		this->viewMatrix[3][2] = -glm::dot(w, position);
+	}
+	auto Camera::setViewTarget(glm::vec3 position, glm::vec3 target, glm::vec3 up) -> void {
+		this->setViewDirection(position, target - position, up);
+	}
+	auto Camera::setViewYXZ(glm::vec3 position, glm::vec3 rotation) -> void {
+		const float c3 = glm::cos(rotation.z); // same idea as in GameObject's Transform Component used for rotation
+		const float s3 = glm::sin(rotation.z); // except inverted this time
+		const float c2 = glm::cos(rotation.x); // could negate all these rotations
+		const float s2 = glm::sin(rotation.x); // but inverse of rotation matrix is also just transpose of rotation matrix
+		const float c1 = glm::cos(rotation.y); // so no need, and can just set below in the correct way
+		const float s1 = glm::sin(rotation.y);
+		const glm::vec3 u{(c1 * c3 + s1 * s2 * s3), (c2 * s3), (c1 * s2 * s3 - c3 * s1)};
+		const glm::vec3 v{(c3 * s1 * s2 - c1 * s3), (c2 * c3), (c1 * c3 * s2 + s1 * s3)};
+		const glm::vec3 w{(c2 * s1), (-s2), (c1 * c2)};
+		this->viewMatrix = glm::mat4{ 1.0f };
+		this->viewMatrix[0][0] = u.x;
+		this->viewMatrix[1][0] = u.y;
+		this->viewMatrix[2][0] = u.z;
+		this->viewMatrix[0][1] = v.x;
+		this->viewMatrix[1][1] = v.y;
+		this->viewMatrix[2][1] = v.z;
+		this->viewMatrix[0][2] = w.x;
+		this->viewMatrix[1][2] = w.y;
+		this->viewMatrix[2][2] = w.z;
+		this->viewMatrix[3][0] = -glm::dot(u, position);
+		this->viewMatrix[3][1] = -glm::dot(v, position);
+		this->viewMatrix[3][2] = -glm::dot(w, position);
+	}
+}
