@@ -141,6 +141,7 @@
     <ClInclude Include="Camera.hpp" />
     <ClInclude Include="FirstApp.hpp" />
     <ClInclude Include="GameObject.hpp" />
+    <ClInclude Include="KeyboardMovementController.hpp" />
     <ClInclude Include="Pipeline.hpp" />
     <ClInclude Include="Device.hpp" />
     <ClInclude Include="Model.hpp" />

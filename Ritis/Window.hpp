@@ -27,7 +27,8 @@ namespace engine {
 		auto getExtent() -> VkExtent2D;
 		auto wasWindowResized() -> bool;
 		auto resetWindowResizeFlag() -> void;
-		void createWindowSurface(VkInstance, VkSurfaceKHR*);
+		auto createWindowSurface(VkInstance, VkSurfaceKHR*) -> void;
+		auto getGFLWWindow() const -> GLFWwindow*;
 	};
 
 	Window::Window(int w, int h, std::string name) :
@@ -57,6 +58,9 @@ namespace engine {
 		if (glfwCreateWindowSurface(instance, window, nullptr, surface) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create window surface");
 		}
+	}
+	auto Window::getGFLWWindow() const -> GLFWwindow* {
+		return this->window;
 	}
 	auto Window::frambufferResizeCallback(GLFWwindow* currWindow, int width, int height) -> void {
 		auto w = reinterpret_cast<Window*>(glfwGetWindowUserPointer(currWindow));

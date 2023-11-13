@@ -5,6 +5,7 @@
 #include "Renderer.hpp"
 #include "SimpleRenderSystem.hpp"
 #include "Camera.hpp"
+#include "KeyboardMovementController.hpp"
 
 #define GLM_FORCE_RADIANS					// functions expect radians, not degrees
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE			// Depth buffer values will range from 0 to 1, not -1 to 1
@@ -16,6 +17,9 @@
 #include <vector>
 #include <stdexcept>
 #include <array>
+#include <chrono>
+
+constexpr const float MAX_FRAME_TIME = 1.0f;
 
 namespace engine {
 	/*auto nextSierpinski(const std::vector<Model::Vertex>& prev) {
@@ -140,12 +144,26 @@ namespace engine {
 	auto FirstApp::run() -> void {
 		SimpleRenderSystem simpleRenderSystem{ this->device, this->renderer.getSwapChainRenderPass() };
 		Camera camera{};
-		//camera.setViewDirection(glm::vec3(0.0f), glm::vec3(0.5f, 0.0f, 1.0f));
 		camera.setViewTarget(glm::vec3(-1.0f, -2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 2.5f));
+
+		auto viewerObject = GameObject::createGameObject(); // store camera state
+		KeyboardMovementController cameraController{};
+
+		auto currentTime = std::chrono::high_resolution_clock::now();
+
 		while (!this->window.shouldClose()) {
 			glfwPollEvents();
+
+			auto newTime = std::chrono::high_resolution_clock::now();
+			float frameTime = std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count();
+			currentTime = newTime;
+
+			frameTime = glm::min(frameTime, MAX_FRAME_TIME); // avoid really large skips if frames aren't coming in
+
+			cameraController.moveInPlaneXZ(this->window.getGFLWWindow(), frameTime, viewerObject);
+			camera.setViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
+
 			float aspect = this->renderer.getAspectRatio();
-			//camera.setOrthographicProjection(-aspect, aspect, -1, 1, -1, 1);
 			camera.setPerspectiveProjection(glm::radians(50.0f), aspect, 0.1f, 10);
 
 			if (auto commandBuffer = this->renderer.beginFrame()) {
