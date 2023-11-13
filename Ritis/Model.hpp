@@ -2,12 +2,22 @@
 
 #include "Device.hpp"
 
+#include "Utils.hpp"
+
 #define GLM_FORCE_RADIANS					// functions expect radians, not degrees
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE			// Depth buffer values will range from 0 to 1, not -1 to 1
 #include <glm/glm.hpp>
 
+#define TINYOBJLOADER_IMPLEMENTATION
+#include <tiny_obj_loader.h>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/hash.hpp>
+
 #include <vector>
 #include <cassert>
+#include <memory>
+#include <iostream>
+#include <unordered_map>
 
 namespace engine {
 	/*
@@ -44,14 +54,25 @@ namespace engine {
 		struct Vertex {
 			glm::vec3 position;
 			glm::vec3 color;
+			glm::vec3 normal{};
+			glm::vec2 uv{};
 			
 			static auto getBindingDescriptions() -> std::vector<VkVertexInputBindingDescription>;
 			static auto getAttributeDescriptions() -> std::vector<VkVertexInputAttributeDescription>;
+
+			bool operator==(const Vertex& other) const {
+				return this->position == other.position
+					&& this->color == other.color
+					&& this->normal == other.normal
+					&& this->uv == other.uv;
+			}
 		};
 
 		struct Builder {
 			std::vector<Vertex> vertices{};
 			std::vector<uint32_t> indices{};
+
+			auto loadModel(const std::string& filepath) -> void;
 		};
 
 		Model(Device& device, const Model::Builder& builder);
@@ -60,6 +81,8 @@ namespace engine {
 		Model(const Model&) = delete;
 		Model& operator=(const Model&) = delete;
 
+		static auto createModelFromFile(Device& device, const std::string& filepath) -> std::unique_ptr<Model>;
+
 		auto bind(VkCommandBuffer commandBuffer) -> void;
 		auto draw(VkCommandBuffer commandBuffer) -> void;
 
@@ -67,9 +90,22 @@ namespace engine {
 		auto createVertexBuffers(const std::vector<Vertex>& vertices) -> void;
 		auto createIndexBuffers(const std::vector<uint32_t>& indices) -> void;
 	};
+}
 
+namespace std { // p sure this is undefined behavior
+	template<>
+	struct hash<engine::Model::Vertex> {
+		size_t operator()(engine::Model::Vertex const& vertex) const {
+			size_t seed = 0;
+			engine::hashCombine(seed, vertex.position, vertex.color, vertex.normal, vertex.uv);
+			return seed;
+		}
+	};
+}
+
+namespace engine {
 	Model::Model(Device& d, const Model::Builder& builder) :
-		device{d}
+		device{ d }
 	{
 		this->createVertexBuffers(builder.vertices);
 		this->createIndexBuffers(builder.indices);
@@ -82,6 +118,13 @@ namespace engine {
 			vkDestroyBuffer(device.device(), this->indexBuffer, nullptr);
 			vkFreeMemory(this->device.device(), this->indexBufferMemory, nullptr);
 		}
+	}
+
+	auto Model::createModelFromFile(Device& device, const std::string& filepath) -> std::unique_ptr<Model> {
+		Builder builder{};
+		builder.loadModel(filepath);
+		std::cout << "Vertex count: " << builder.vertices.size() << "\n";
+		return std::make_unique<Model>(device, builder);
 	}
 
 	auto Model::createVertexBuffers(const std::vector<Vertex>& vertices) -> void {
@@ -202,5 +245,61 @@ namespace engine {
 		attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
 		attributeDescriptions[1].offset = offsetof(Vertex, color);
 		return attributeDescriptions;
+	}
+
+	auto Model::Builder::loadModel(const std::string& filepath) -> void {
+		tinyobj::attrib_t attrib;
+		std::vector<tinyobj::shape_t> shapes;
+		std::vector<tinyobj::material_t> materials;
+		std::string warn, err;
+
+		if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filepath.c_str()))
+			throw std::runtime_error(warn + err);
+
+		this->vertices.clear();
+		this->indices.clear();
+
+		std::unordered_map<Vertex, uint32_t> uniqueVertices{};
+		for (const auto& shape : shapes) {
+			for (const auto& index : shape.mesh.indices) {
+				Vertex vertex{};
+				if (index.vertex_index >= 0) {
+					vertex.position = {
+						attrib.vertices[3 * index.vertex_index + 0],
+						attrib.vertices[3 * index.vertex_index + 1],
+						attrib.vertices[3 * index.vertex_index + 2]
+					};
+					auto colorIndex = 3 * index.vertex_index + 2;
+					if (colorIndex < attrib.colors.size()) {
+						vertex.color = {
+							attrib.colors[colorIndex - 2],
+							attrib.colors[colorIndex - 1],
+							attrib.colors[colorIndex]
+						};
+					}
+					else {
+						vertex.color = { 1.0f, 1.0f, 1.0f }; // default color
+					}
+				}
+				if (index.normal_index >= 0) {
+					vertex.normal = {
+						attrib.normals[3 * index.normal_index + 0],
+						attrib.normals[3 * index.normal_index + 1],
+						attrib.normals[3 * index.normal_index + 2]
+					};
+				}
+				if (index.texcoord_index >= 0) {
+					vertex.uv = {
+						attrib.texcoords[2 * index.texcoord_index + 0],
+						attrib.texcoords[2 * index.texcoord_index + 1]
+					};
+				}
+				if (uniqueVertices.count(vertex) == 0) {
+					uniqueVertices[vertex] = static_cast<uint32_t>(this->vertices.size());
+					this->vertices.push_back(vertex);
+				}
+				this->indices.push_back(uniqueVertices[vertex]);
+			}
+		}
 	}
 }
