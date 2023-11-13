@@ -15,9 +15,31 @@ namespace engine {
 	*/
 	class Model {
 		Device& device;
+
 		VkBuffer vertexBuffer;
 		VkDeviceMemory vertexBufferMemory;
 		uint32_t vertexCount;
+		
+		bool hasIndexBuffer = false;		// optional index buffer support. just leave input builder's indices member empty if not desired
+		VkBuffer indexBuffer;				// index buffers list indices of vertices in the vertex buffer
+		VkDeviceMemory indexBufferMemory;	// this allows the vertex buffer to only contain unique vertices (and any associated data, like color)
+		uint32_t indexCount;				// and avoids copying vertex data to form each triangle
+
+		/*
+		 v1 ______ v2/v4
+			|   /|
+			|  / |
+			| /  |
+	  v3/v5 |/___| v6
+			vertexBuffer (no indexbuffer) = {v1, v2, v3, v4, v5, v6}
+
+			vertexBuffer (w/ indexbuffer) = {v1, v2, v3, v6}
+			indexBuffer = {0, 1, 2, 1, 2, 3}
+			0, 1, 2 => v1, v2, v3. 1, 2, 3 => v2, v3, v6.
+
+			With complex models, it's feasible to have tons of shared vertices. Index buffers reduce memory usage as models get more complex
+		*/
+
 	public:
 		struct Vertex {
 			glm::vec3 position;
@@ -27,7 +49,12 @@ namespace engine {
 			static auto getAttributeDescriptions() -> std::vector<VkVertexInputAttributeDescription>;
 		};
 
-		Model(Device& device, const std::vector<Vertex>& vertices);
+		struct Builder {
+			std::vector<Vertex> vertices{};
+			std::vector<uint32_t> indices{};
+		};
+
+		Model(Device& device, const Model::Builder& builder);
 		~Model();
 
 		Model(const Model&) = delete;
@@ -38,42 +65,85 @@ namespace engine {
 
 	private:
 		auto createVertexBuffers(const std::vector<Vertex>& vertices) -> void;
+		auto createIndexBuffers(const std::vector<uint32_t>& indices) -> void;
 	};
 
-	Model::Model(Device& d, const std::vector<Vertex>& vertices) :
+	Model::Model(Device& d, const Model::Builder& builder) :
 		device{d}
 	{
-		this->createVertexBuffers(vertices);
+		this->createVertexBuffers(builder.vertices);
+		this->createIndexBuffers(builder.indices);
 	}
 	Model::~Model() {
 		// passing in nullptr when dealing with memory isn't efficient. will change later
 		vkDestroyBuffer(device.device(), this->vertexBuffer, nullptr);
 		vkFreeMemory(this->device.device(), this->vertexBufferMemory, nullptr);
+		if (this->hasIndexBuffer) {
+			vkDestroyBuffer(device.device(), this->indexBuffer, nullptr);
+			vkFreeMemory(this->device.device(), this->indexBufferMemory, nullptr);
+		}
 	}
 
 	auto Model::createVertexBuffers(const std::vector<Vertex>& vertices) -> void {
-		vertexCount = static_cast<uint32_t>(vertices.size());
-		assert(vertexCount >= 3 && "Vertex count must be at least 3");
-		VkDeviceSize bufferSize = sizeof(vertices[0]) * vertexCount;
+		this->vertexCount = static_cast<uint32_t>(vertices.size());
+		assert(this->vertexCount >= 3 && "Vertex count must be at least 3");
+		VkDeviceSize bufferSize = sizeof(vertices[0]) * this->vertexCount;
+		VkBuffer stagingBuffer;
+		VkDeviceMemory stagingBufferMemory;
 		this->device.createBuffer(
 			bufferSize,
-			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,			// buffer will be used to hold vertex buffer data
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT			// host = CPU (device = GPU), so cpu accessible. Needed to write from cpu
-			| VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,	// host changes affect device side. Otherwise have to do manually
+			VK_BUFFER_USAGE_TRANSFER_SRC_BIT,			// buffer will be used as a source location for a memory transfer on device
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT			// host = CPU (device = GPU), so cpu accessible. Needed to write from cpu. host changes affect device side. 
+			| VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			stagingBuffer,
+			stagingBufferMemory
+		);
+		void* data;
+		vkMapMemory(this->device.device(), stagingBufferMemory, 0, bufferSize, 0, &data); // map stagingBufferMemory to void* data
+		memcpy(data, vertices.data(), static_cast<size_t>(bufferSize));	// vertices written to host memory. coherent bit flushed changes
+		vkUnmapMemory(this->device.device(), stagingBufferMemory);		// end mapping, now do internal transfer to device only memory for faster operation (as it doesnt need to check if things have been written to it)
+
+		this->device.createBuffer(
+			bufferSize,
+			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,	// buffer will be used to hold vertex buffer data and be a destination from a staging buffer
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, // optimized device only memory
 			this->vertexBuffer,
 			this->vertexBufferMemory
 		);
-		void* data;
-		vkMapMemory(						// point data -> start of vertex buffer memory
-			this->device.device(),
-			vertexBufferMemory,
-			0,
+		this->device.copyBuffer(stagingBuffer, this->vertexBuffer, bufferSize); // copy host & device side staging buffer into device only vertex buffer
+		vkDestroyBuffer(this->device.device(), stagingBuffer, nullptr);
+		vkFreeMemory(this->device.device(), stagingBufferMemory, nullptr);
+	}
+	auto Model::createIndexBuffers(const std::vector<uint32_t>& indices) -> void {	// similar to vertex buffer
+		this->indexCount = static_cast<uint32_t>(indices.size());
+		this->hasIndexBuffer = this->indexCount > 0;
+		if (!this->hasIndexBuffer) return;											// can early return
+		VkDeviceSize bufferSize = sizeof(indices[0]) * this->indexCount;
+		VkBuffer stagingBuffer;
+		VkDeviceMemory stagingBufferMemory;
+		this->device.createBuffer(
 			bufferSize,
-			0,
-			&data
+			VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
+			| VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			stagingBuffer,
+			stagingBufferMemory
 		);
-		memcpy(data, vertices.data(), static_cast<size_t>(bufferSize));	// vertices written to host memory. coherent bit flushed changes
-		vkUnmapMemory(this->device.device(), vertexBufferMemory);		// automatically to device side vertex buffer memory
+		void* data;
+		vkMapMemory(this->device.device(), stagingBufferMemory, 0, bufferSize, 0, &data);
+		memcpy(data, indices.data(), static_cast<size_t>(bufferSize));
+		vkUnmapMemory(this->device.device(), stagingBufferMemory);
+
+		this->device.createBuffer(
+			bufferSize,
+			VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, // index buffer but also destination for staging buffer copy
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, // optimized device only memory
+			this->indexBuffer,
+			this->indexBufferMemory
+		);
+		this->device.copyBuffer(stagingBuffer, this->indexBuffer, bufferSize);
+		vkDestroyBuffer(this->device.device(), stagingBuffer, nullptr);
+		vkFreeMemory(this->device.device(), stagingBufferMemory, nullptr);
 	}
 
 	auto Model::bind(VkCommandBuffer commandBuffer) -> void {
@@ -86,15 +156,31 @@ namespace engine {
 			buffers,
 			offsets
 		);
+
+		if (this->hasIndexBuffer) {
+			vkCmdBindIndexBuffer(commandBuffer, this->indexBuffer, 0, VK_INDEX_TYPE_UINT32); // could use different int type here to save space or make room for more vertices
+		}
 	}
 	auto Model::draw(VkCommandBuffer commandBuffer) -> void {
-		vkCmdDraw(
-			commandBuffer,
-			vertexCount,
-			1,
-			0,
-			0
-		);
+		if (this->hasIndexBuffer) {
+			vkCmdDrawIndexed(
+				commandBuffer,
+				this->indexCount,
+				1,
+				0,
+				0,
+				0
+			);
+		}
+		else {
+			vkCmdDraw(
+				commandBuffer,
+				vertexCount,
+				1,
+				0,
+				0
+			);
+		}
 	}
 
 	auto Model::Vertex::getBindingDescriptions() -> std::vector<VkVertexInputBindingDescription> {
