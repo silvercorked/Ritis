@@ -74,13 +74,21 @@ namespace engine {
 	FirstApp::~FirstApp() {}
 
 	auto FirstApp::loadGameObjects() -> void {
-		std::shared_ptr<Model> model = Model::createModelFromFile(device, "models/smooth_vase.obj");
-		auto gameObj = GameObject::createGameObject();
-		gameObj.model = model;
-		gameObj.transform.translation = { 0.0f, 0.0f, 2.5f };
-		gameObj.transform.scale = glm::vec3{3.0f};
+		std::shared_ptr<Model> flatModel = Model::createModelFromFile(device, "models/flat_vase.obj");
+		auto gameObj1 = GameObject::createGameObject();
+		gameObj1.model = flatModel;
+		gameObj1.transform.translation = { -0.5f, 0.5f, 2.5f };
+		gameObj1.transform.scale = glm::vec3{ 3.0f, 1.5f, 3.0f };
 
-		this->gameObjects.push_back(std::move(gameObj));
+		this->gameObjects.push_back(std::move(gameObj1));
+
+		std::shared_ptr<Model> smoothModel = Model::createModelFromFile(device, "models/smooth_vase.obj");
+		auto gameObj2 = GameObject::createGameObject();
+		gameObj2.model = smoothModel;
+		gameObj2.transform.translation = { 0.5f, 0.5f, 2.5f };
+		gameObj2.transform.scale = glm::vec3{ 3.0f, 1.5f, 3.0f };
+
+		this->gameObjects.push_back(std::move(gameObj2));
 	}
 	auto FirstApp::run() -> void {
 		SimpleRenderSystem simpleRenderSystem{ this->device, this->renderer.getSwapChainRenderPass() };

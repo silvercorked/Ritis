@@ -24,7 +24,7 @@ namespace engine {
 	// vec2 takes up 8, so pad 8 more then place vec 3
 	struct SimplePushConstantData {
 		glm::mat4 transform{1.0f};
-		alignas(16) glm::vec3 color;
+		glm::mat4 normalMatrix{1.0f}; // still mat4 for alignment
 	};
 
 	class SimpleRenderSystem {
@@ -102,8 +102,9 @@ namespace engine {
 		auto projectionView = camera.getProjection() * camera.getView();
 		for (auto& obj : gameObjects) {
 			SimplePushConstantData push{};
-			push.color = obj.color;
-			push.transform = projectionView * obj.transform.mat4();
+			auto modelMatrix = obj.transform.mat4();
+			push.transform = projectionView * modelMatrix;
+			push.normalMatrix = obj.transform.normalMatrix(); // auto convert mat3 -> padded mat4
 
 			vkCmdPushConstants(
 				commandBuffer,

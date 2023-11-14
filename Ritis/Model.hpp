@@ -234,16 +234,32 @@ namespace engine {
 		return bindingDescriptions;
 	}
 	auto Model::Vertex::getAttributeDescriptions() -> std::vector<VkVertexInputAttributeDescription> {
-		std::vector<VkVertexInputAttributeDescription> attributeDescriptions(2);
-		attributeDescriptions[0].binding = 0;
-		attributeDescriptions[0].location = 0;
-		attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-		attributeDescriptions[0].offset = offsetof(Vertex, position); // useful macro to know
+		std::vector<VkVertexInputAttributeDescription> attributeDescriptions{};
 
-		attributeDescriptions[1].binding = 0; // interleaving, so binding same
-		attributeDescriptions[1].location = 1; // location = 1
-		attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-		attributeDescriptions[1].offset = offsetof(Vertex, color);
+		attributeDescriptions.push_back({	// position
+			0,							// location
+			0,							// binding // interleaving, so binding same
+			VK_FORMAT_R32G32B32_SFLOAT,	// format
+			offsetof(Vertex, position)	// offset
+		});
+		attributeDescriptions.push_back({	// color
+			1,							// location
+			0,							// binding
+			VK_FORMAT_R32G32B32_SFLOAT,	// format
+			offsetof(Vertex, color)		// offset
+		});
+		attributeDescriptions.push_back({	// normal
+			2,							// location
+			0,							// binding
+			VK_FORMAT_R32G32B32_SFLOAT,	// format
+			offsetof(Vertex, normal)	// offset
+		});
+		attributeDescriptions.push_back({	// uv
+			3,							// location
+			0,							// binding
+			VK_FORMAT_R32G32_SFLOAT,	// format
+			offsetof(Vertex, uv)		// offset
+		});
 		return attributeDescriptions;
 	}
 
@@ -269,17 +285,11 @@ namespace engine {
 						attrib.vertices[3 * index.vertex_index + 1],
 						attrib.vertices[3 * index.vertex_index + 2]
 					};
-					auto colorIndex = 3 * index.vertex_index + 2;
-					if (colorIndex < attrib.colors.size()) {
-						vertex.color = {
-							attrib.colors[colorIndex - 2],
-							attrib.colors[colorIndex - 1],
-							attrib.colors[colorIndex]
-						};
-					}
-					else {
-						vertex.color = { 1.0f, 1.0f, 1.0f }; // default color
-					}
+					vertex.color = {
+						attrib.colors[3 * index.vertex_index + 0],
+						attrib.colors[3 * index.vertex_index + 1],
+						attrib.colors[3 * index.vertex_index + 2]
+					};
 				}
 				if (index.normal_index >= 0) {
 					vertex.normal = {
