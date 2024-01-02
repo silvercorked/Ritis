@@ -3,6 +3,7 @@
 #include "Device.hpp"
 #include "Pipeline.hpp"
 #include "GameObject.hpp"
+#include "FrameInfo.hpp"
 
 #define GLM_FORCE_RADIANS					// functions expect radians, not degrees
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE			// Depth buffer values will range from 0 to 1, not -1 to 1
@@ -42,7 +43,7 @@ namespace engine {
 		SimpleRenderSystem(const SimpleRenderSystem&) = delete;
 		SimpleRenderSystem& operator=(const SimpleRenderSystem&) = delete;
 
-		auto renderGameObjects(VkCommandBuffer, std::vector<GameObject>&, const Camera&) -> void;
+		auto renderGameObjects(FrameInfo&, std::vector<GameObject>&) -> void;
 		auto run() -> void;
 	};
 
@@ -94,12 +95,11 @@ namespace engine {
 		);
 	}
 	auto SimpleRenderSystem::renderGameObjects(
-		VkCommandBuffer commandBuffer,
-		std::vector<GameObject>& gameObjects,
-		const Camera& camera)
-	-> void {
-		this->pipeline->bind(commandBuffer);
-		auto projectionView = camera.getProjection() * camera.getView();
+		FrameInfo& frameInfo,
+		std::vector<GameObject>& gameObjects
+	) -> void {
+		this->pipeline->bind(frameInfo.commandBuffer);
+		auto projectionView = frameInfo.camera.getProjection() * frameInfo.camera.getView();
 		for (auto& obj : gameObjects) {
 			SimplePushConstantData push{};
 			auto modelMatrix = obj.transform.mat4();
@@ -107,15 +107,15 @@ namespace engine {
 			push.normalMatrix = obj.transform.normalMatrix(); // auto convert mat3 -> padded mat4
 
 			vkCmdPushConstants(
-				commandBuffer,
+				frameInfo.commandBuffer,
 				pipelineLayout,
 				VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
 				0,
 				sizeof(SimplePushConstantData),
 				&push
 			);
-			obj.model->bind(commandBuffer);
-			obj.model->draw(commandBuffer);
+			obj.model->bind(frameInfo.commandBuffer);
+			obj.model->draw(frameInfo.commandBuffer);
 		}
 	}
 }

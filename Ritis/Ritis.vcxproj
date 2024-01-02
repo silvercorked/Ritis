@@ -138,8 +138,10 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Buffer.hpp" />
     <ClInclude Include="Camera.hpp" />
     <ClInclude Include="FirstApp.hpp" />
+    <ClInclude Include="FrameInfo.hpp" />
     <ClInclude Include="GameObject.hpp" />
     <ClInclude Include="KeyboardMovementController.hpp" />
     <ClInclude Include="Pipeline.hpp" />

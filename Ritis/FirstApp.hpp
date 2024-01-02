@@ -4,6 +4,7 @@
 #include "GameObject.hpp"
 #include "Renderer.hpp"
 #include "SimpleRenderSystem.hpp"
+#include "Buffer.hpp"
 #include "Camera.hpp"
 #include "KeyboardMovementController.hpp"
 
@@ -46,6 +47,11 @@ namespace engine {
 		}
 		return next;
 	}*/
+
+	struct GlobalUniformBufferObject {
+		glm::mat4 projectionView{ 1.0f };
+		glm::vec3 lightDirection = glm::normalize(glm::vec3{ 1.0f, -3.0f, -1.0f });
+	};
 
 	class FirstApp {
 		Window window{ WIDTH, HEIGHT, "Hello, World!" };
@@ -91,6 +97,18 @@ namespace engine {
 		this->gameObjects.push_back(std::move(gameObj2));
 	}
 	auto FirstApp::run() -> void {
+		std::vector<std::unique_ptr<Buffer>> uboBuffers(SwapChain::MAX_FRAMES_IN_FLIGHT);
+		for (int i = 0; i < uboBuffers.size(); i++) {
+			uboBuffers[i] = std::make_unique<Buffer>(
+				this->device,
+				sizeof(GlobalUniformBufferObject),
+				1, // write to frame's instance without dealing with sync issues (say frame 1 is rendering, can still store UBO for frame 2)
+				VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT // no coherent bit, opt to use flush instead, even though 1 buffer per swapchain frame
+			);
+			uboBuffers[i]->map();
+		}
+
 		SimpleRenderSystem simpleRenderSystem{ this->device, this->renderer.getSwapChainRenderPass() };
 		Camera camera{};
 		camera.setViewTarget(glm::vec3(-1.0f, -2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 2.5f));
@@ -116,8 +134,22 @@ namespace engine {
 			camera.setPerspectiveProjection(glm::radians(50.0f), aspect, 0.1f, 10);
 
 			if (auto commandBuffer = this->renderer.beginFrame()) {
+				int frameIndex = renderer.getFrameIndex();
+				FrameInfo frameInfo{
+					frameIndex,
+					frameTime,
+					commandBuffer,
+					camera
+				};
+				// update
+				GlobalUniformBufferObject ubo{};
+				ubo.projectionView = camera.getProjection() * camera.getView();
+				uboBuffers[frameIndex]->writeToBuffer(&ubo);
+				uboBuffers[frameIndex]->flush();
+
+				// render
 				this->renderer.beginSwapChainRenderPass(commandBuffer);
-				simpleRenderSystem.renderGameObjects(commandBuffer, this->gameObjects, camera);
+				simpleRenderSystem.renderGameObjects(frameInfo, this->gameObjects);
 				this->renderer.endSwapChainRenderPass(commandBuffer);
 				this->renderer.endFrame();
 			}
