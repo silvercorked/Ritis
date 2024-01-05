@@ -8,12 +8,16 @@ layout(location = 3) in vec2 uv;
 
 layout(location = 0) out vec3 fragColor;
 
+layout(set = 0, binding = 0) uniform GlobalUbo {
+	mat4 projectionViewMatrix;
+	vec3 directionToLight;
+} ubo;
+
 layout(push_constant) uniform Push {
-	mat4 transform;		// projection * view * model
-	mat4 normalMatrix;	// actually a mat3, but mat4 for alignment
+	mat4 modelMatrix;		// model
+	mat4 normalMatrix;		// actually a mat3, but mat4 for alignment
 } push;
 
-const vec3 DIRECTION_TO_LIGHT = normalize(vec3(1.0, -3.0, -1.0));
 const float AMBIENT = 0.02;
 
 void main() {
@@ -23,7 +27,7 @@ void main() {
 	//          |____|
 	//  (-1, 1)        (1, 1)
 	// gl_Position = vec4(push.transform * position + push.offset, 0.0, 1.0); // x, y, z, w
-	gl_Position = push.transform * vec4(position, 1.0); // 1 is homogenous coordinate. if position was direction vector, could use 0 to avoid affect of translation
+	gl_Position = ubo.projectionViewMatrix * push.modelMatrix * vec4(position, 1.0); // 1 is homogenous coordinate. if position was direction vector, could use 0 to avoid affect of translation
 	
 	//vec3 normalWorldSpace = normalize(mat3(push.modelMatrix) * normal); // only works if uniform scaling (sx == sy == sz)
 
@@ -32,7 +36,7 @@ void main() {
 
 	vec3 normalWorldSpace = normalize(mat3(push.normalMatrix) * normal); // faster by pre-computing inverse transpose on host
 
-	float lightIntensity = AMBIENT + max(dot(normalWorldSpace, DIRECTION_TO_LIGHT), 0);
+	float lightIntensity = AMBIENT + max(dot(normalWorldSpace, ubo.directionToLight), 0);
 	
 	fragColor = lightIntensity * color;
 }

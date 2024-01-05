@@ -24,7 +24,7 @@ namespace engine {
 	// vec3 must be aligned to a multiple of 16 by vulkan docs
 	// vec2 takes up 8, so pad 8 more then place vec 3
 	struct SimplePushConstantData {
-		glm::mat4 transform{1.0f};
+		glm::mat4 modelMatrix{1.0f};
 		glm::mat4 normalMatrix{1.0f}; // still mat4 for alignment
 	};
 
@@ -34,10 +34,10 @@ namespace engine {
 		std::unique_ptr<Pipeline> pipeline;
 		VkPipelineLayout pipelineLayout;
 
-		auto createPipelineLayout() -> void;
+		auto createPipelineLayout(VkDescriptorSetLayout) -> void;
 		auto createPipeline(VkRenderPass) -> void;
 	public:
-		SimpleRenderSystem(Device&, VkRenderPass);
+		SimpleRenderSystem(Device&, VkRenderPass, VkDescriptorSetLayout);
 		~SimpleRenderSystem();
 
 		SimpleRenderSystem(const SimpleRenderSystem&) = delete;
@@ -47,24 +47,27 @@ namespace engine {
 		auto run() -> void;
 	};
 
-	SimpleRenderSystem::SimpleRenderSystem(Device& d, VkRenderPass renderPass) : device{ d } {
-		this->createPipelineLayout();
+	SimpleRenderSystem::SimpleRenderSystem(Device& d, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout) : device{ d } {
+		this->createPipelineLayout(globalSetLayout);
 		this->createPipeline(renderPass);
 	}
 	SimpleRenderSystem::~SimpleRenderSystem() {
 		vkDestroyPipelineLayout(this->device.device(), this->pipelineLayout, nullptr);
 	}
 
-	auto SimpleRenderSystem::createPipelineLayout() -> void {
+	auto SimpleRenderSystem::createPipelineLayout(VkDescriptorSetLayout globalSetLayout) -> void {
 		VkPushConstantRange pushConstantRange{};
 		pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT; // both vertex and fragment shader
 		pushConstantRange.offset = 0;
 		pushConstantRange.size = sizeof(SimplePushConstantData);
+
+		std::vector<VkDescriptorSetLayout> descriptorSetLayouts{ globalSetLayout };
+
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 
-		pipelineLayoutInfo.setLayoutCount = 0;						// empty layout, layouts can be used to send additional data
-		pipelineLayoutInfo.pSetLayouts = nullptr;					// to vertex and fragment shaders (textures, uniform buffer objs, .etc)
+		pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(descriptorSetLayouts.size());
+		pipelineLayoutInfo.pSetLayouts = descriptorSetLayouts.data();
 
 		pipelineLayoutInfo.pushConstantRangeCount = 1;				// method of sending small amounts of data to shader programs
 		pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
@@ -99,11 +102,20 @@ namespace engine {
 		std::vector<GameObject>& gameObjects
 	) -> void {
 		this->pipeline->bind(frameInfo.commandBuffer);
-		auto projectionView = frameInfo.camera.getProjection() * frameInfo.camera.getView();
+
+		vkCmdBindDescriptorSets(
+			frameInfo.commandBuffer,
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			this->pipelineLayout,
+			0, 1,					// which descriptor set to bind and how many to bind (bind 0th, and bind only 1). all bound after 0th are undone, so want earliest ones to be the ones that need to rebind least commonly
+			&frameInfo.globalDescriptorSet,
+			0,
+			nullptr
+		);
+
 		for (auto& obj : gameObjects) {
 			SimplePushConstantData push{};
-			auto modelMatrix = obj.transform.mat4();
-			push.transform = projectionView * modelMatrix;
+			push.modelMatrix = obj.transform.mat4();
 			push.normalMatrix = obj.transform.normalMatrix(); // auto convert mat3 -> padded mat4
 
 			vkCmdPushConstants(

@@ -7,6 +7,7 @@
 #include "Buffer.hpp"
 #include "Camera.hpp"
 #include "KeyboardMovementController.hpp"
+#include "Descriptors.hpp"
 
 #define GLM_FORCE_RADIANS					// functions expect radians, not degrees
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE			// Depth buffer values will range from 0 to 1, not -1 to 1
@@ -54,10 +55,12 @@ namespace engine {
 	};
 
 	class FirstApp {
-		Window window{ WIDTH, HEIGHT, "Hello, World!" };
+		Window window{ WIDTH, HEIGHT, "Vulkan Learning" };
 		Device device{ window };
 		Renderer renderer{ window, device };
 
+		// order of declarations matters
+		std::unique_ptr<DescriptorPool> globalPool{}; // pool needs to be destroyed before devices
 		std::vector<GameObject> gameObjects;
 
 		auto loadGameObjects() -> void;
@@ -75,6 +78,10 @@ namespace engine {
 	};
 
 	FirstApp::FirstApp() {
+		this->globalPool = DescriptorPool::Builder(this->device)
+			.setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT)
+			.addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, SwapChain::MAX_FRAMES_IN_FLIGHT)
+			.build();
 		this->loadGameObjects();
 	}
 	FirstApp::~FirstApp() {}
@@ -109,7 +116,19 @@ namespace engine {
 			uboBuffers[i]->map();
 		}
 
-		SimpleRenderSystem simpleRenderSystem{ this->device, this->renderer.getSwapChainRenderPass() };
+		auto globalSetLayout = DescriptorSetLayout::Builder(this->device)
+			.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+			.build();
+
+		std::vector<VkDescriptorSet> globalDescriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT);
+		for (int i = 0; i < globalDescriptorSets.size(); i++) {
+			auto bufferInfo = uboBuffers[i]->descriptorInfo();
+			DescriptorWriter(*globalSetLayout, *globalPool)
+				.writeBuffer(0, &bufferInfo)
+				.build(globalDescriptorSets[i]);
+		}
+
+		SimpleRenderSystem simpleRenderSystem{ this->device, this->renderer.getSwapChainRenderPass(), globalSetLayout->getDescriptorSetLayout() };
 		Camera camera{};
 		camera.setViewTarget(glm::vec3(-1.0f, -2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 2.5f));
 
@@ -118,6 +137,7 @@ namespace engine {
 
 		auto currentTime = std::chrono::high_resolution_clock::now();
 
+		uint32_t frameCount = 0;
 		while (!this->window.shouldClose()) {
 			glfwPollEvents();
 
@@ -139,10 +159,13 @@ namespace engine {
 					frameIndex,
 					frameTime,
 					commandBuffer,
-					camera
+					camera,
+					globalDescriptorSets[frameIndex]
 				};
 				// update
 				GlobalUniformBufferObject ubo{};
+				//float rotation = glm::cos((static_cast<float>(frameCount++) / 1000.0f));
+				//ubo.lightDirection = glm::normalize(glm::vec3{ 1.0f * rotation, -1.0f, -1.0f * rotation });
 				ubo.projectionView = camera.getProjection() * camera.getView();
 				uboBuffers[frameIndex]->writeToBuffer(&ubo);
 				uboBuffers[frameIndex]->flush();

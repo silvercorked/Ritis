@@ -79,3 +79,23 @@ Push Constants (alternative to descriptor sets and uniform buffers)
 		- Size
 		- Note: maxPushConstantsSize memory capacity is shared between all shader stages
 			- one shared 128 byte push constant, or two 64 byte push contants (one for vertex and one for fragment), or another combination
+
+	Descriptor set notes:
+		- vulkan feature
+		- descriptors are common in other systems but descriptor sets are vulkan specific
+		- descriptors are pointers with metadata which points to resources
+			- buffer descriptors might point to a uniform buffer containing the projection matrix or point light locations
+			- image descriptors might point to image data like normal maps, texture maps, and others
+		- point is, this data needs to be bound to the pipeline, but some change more than others
+			- so a descriptor set is usually a set of descriptors that change at the same time
+		- so projection matrix and point light locations dont change, so they can be put into one set and bound to the pipeline once
+		- but model data, and model image maps change per model, so they are a set and need to be bound each time
+		- if only 1 set was allowed, the projection matrix and point light descriptors would be rebound and allocated each time
+		- descriptors set layouts inform vulkan what layout of descriptors to expect and their types
+		- descriptors sets aren't created directly. Allocated from descriptor pools (reduces memory allocation costs)
+		- tldr
+			- descriptors point to resources and have some metadata
+			- descriptors have to be grouped into sets to bind
+			- descriptor set layouts need to be provided at pipeline creation time
+			- descriptor sets need to be bound before draw calls
+			- descriptor sets can only be created using a descripor pool object
