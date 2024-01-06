@@ -24,35 +24,13 @@
 constexpr const float MAX_FRAME_TIME = 1.0f;
 
 namespace engine {
-	/*auto nextSierpinski(const std::vector<Model::Vertex>& prev) {
-		std::vector<Model::Vertex> next = {};
-		for (auto i = 0; i < prev.size(); i += 3) { // prev[i][i + 1] and [i + 2] hold the triangl's verticies
-			glm::vec2 avg0_1 = (prev[i].position + prev[i + 1].position) / 2.0f; // mid-point between vertex 0 and 1
-			glm::vec2 avg0_2 = (prev[i].position + prev[i + 2].position) / 2.0f; // mid-point between vertex 0 and 2
-			glm::vec2 avg1_2 = (prev[i + 1].position + prev[i + 2].position) / 2.0f; // mid-point between vertex 1 and 2
-			{	// first triangle (0th vertex + 01 midpoint + 02 midpoint)
-				next.push_back({ prev[i].position , prev[i].color });
-				next.push_back({ avg0_1, prev[i + 1].color });
-				next.push_back({ avg0_2, prev[i + 2].color });
-			}
-			{	// second (1st vertex + 01 midpoint + 12 midpoint)
-				next.push_back({ prev[i + 1].position , prev[i + 1].color });
-				next.push_back({ avg0_1, prev[i].color });
-				next.push_back({ avg1_2, prev[i + 2].color });
-			}
-			{	// third (2nd vertex + 02 midpoint + 12 midpoint)
-				next.push_back({ prev[i + 2].position , prev[i + 2].color });
-				next.push_back({ avg0_2, prev[i].color });
-				next.push_back({ avg1_2, prev[i + 1].color });
-			}
-		}
-		return next;
-	}*/
-
-	struct GlobalUniformBufferObject {
-		glm::mat4 projectionView{ 1.0f };
-		glm::vec3 lightDirection = glm::normalize(glm::vec3{ 1.0f, -3.0f, -1.0f });
-	};
+	struct GlobalUniformBufferObject { // automatic alignment (std140 qualified uniform block (https://www.oreilly.com/library/view/opengl-programming-guide/9780132748445/app09lev1sec2.html)
+		alignas(64) glm::mat4 projectionView{ 1.0f };
+		alignas(16) glm::vec4 ambientLightColor{ 1.0f, 1.0f, 1.0f, 0.02f };
+		//glm::vec3 lightDirection = glm::normalize(glm::vec3{ 1.0f, -3.0f, -1.0f });
+		alignas(16) glm::vec3 lightPosition{ -1.0f }; // actually aligned as 16
+		alignas(16) glm::vec4 lightColor{ 1.0f }; // w is light intensity. could pack into vec3 { r * i, g * i, b * i }, but then values need to be able to be > 1
+	}; // using alignas to both be explicit and confirm my understanding
 
 	class FirstApp {
 		Window window{ WIDTH, HEIGHT, "Vulkan Learning" };
@@ -90,7 +68,7 @@ namespace engine {
 		std::shared_ptr<Model> flatModel = Model::createModelFromFile(device, "models/flat_vase.obj");
 		auto gameObj1 = GameObject::createGameObject();
 		gameObj1.model = flatModel;
-		gameObj1.transform.translation = { -0.5f, 0.5f, 2.5f };
+		gameObj1.transform.translation = { -0.5f, 0.5f, 0.0f };
 		gameObj1.transform.scale = glm::vec3{ 3.0f, 1.5f, 3.0f };
 
 		this->gameObjects.push_back(std::move(gameObj1));
@@ -98,10 +76,18 @@ namespace engine {
 		std::shared_ptr<Model> smoothModel = Model::createModelFromFile(device, "models/smooth_vase.obj");
 		auto gameObj2 = GameObject::createGameObject();
 		gameObj2.model = smoothModel;
-		gameObj2.transform.translation = { 0.5f, 0.5f, 2.5f };
+		gameObj2.transform.translation = { 0.5f, 0.5f, 0.0f };
 		gameObj2.transform.scale = glm::vec3{ 3.0f, 1.5f, 3.0f };
 
 		this->gameObjects.push_back(std::move(gameObj2));
+
+		std::shared_ptr<Model> floorModel = Model::createModelFromFile(device, "models/quad.obj");
+		auto floor = GameObject::createGameObject();
+		floor.model = floorModel;
+		floor.transform.translation = { 0.0f, 0.5f, 0.0f };
+		floor.transform.scale = { 3.0f, 1.0f, 3.0f };
+
+		this->gameObjects.push_back(std::move(floor));
 	}
 	auto FirstApp::run() -> void {
 		std::vector<std::unique_ptr<Buffer>> uboBuffers(SwapChain::MAX_FRAMES_IN_FLIGHT);
@@ -133,6 +119,7 @@ namespace engine {
 		camera.setViewTarget(glm::vec3(-1.0f, -2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 2.5f));
 
 		auto viewerObject = GameObject::createGameObject(); // store camera state
+		viewerObject.transform.translation.z = -2.5f;
 		KeyboardMovementController cameraController{};
 
 		auto currentTime = std::chrono::high_resolution_clock::now();

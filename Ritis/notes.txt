@@ -99,3 +99,10 @@ Push Constants (alternative to descriptor sets and uniform buffers)
 			- descriptor set layouts need to be provided at pipeline creation time
 			- descriptor sets need to be bound before draw calls
 			- descriptor sets can only be created using a descripor pool object
+
+	Point Lights
+		- differ from directional lights because angle to light from vertex is not the same for all vertices
+			- brightness (amount of light) hitting a vertex is also different, as distance from point is a factor
+				- the rays of light are "attenuated"
+			- brightness of a vertex given a point light is proportional to inv distance sqaured (1/(distance^2))
+			- but some use a constant, linear, and quadratic term to achieve an artistic look (1/(c+l*distance+q*distance^2))
