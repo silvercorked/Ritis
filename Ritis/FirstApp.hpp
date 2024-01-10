@@ -39,7 +39,7 @@ namespace engine {
 
 		// order of declarations matters
 		std::unique_ptr<DescriptorPool> globalPool{}; // pool needs to be destroyed before devices
-		std::vector<GameObject> gameObjects;
+		GameObject::Map gameObjects;
 
 		auto loadGameObjects() -> void;
 	public:
@@ -71,7 +71,7 @@ namespace engine {
 		gameObj1.transform.translation = { -0.5f, 0.5f, 0.0f };
 		gameObj1.transform.scale = glm::vec3{ 3.0f, 1.5f, 3.0f };
 
-		this->gameObjects.push_back(std::move(gameObj1));
+		this->gameObjects.emplace(gameObj1.getId(), std::move(gameObj1));
 
 		std::shared_ptr<Model> smoothModel = Model::createModelFromFile(device, "models/smooth_vase.obj");
 		auto gameObj2 = GameObject::createGameObject();
@@ -79,7 +79,7 @@ namespace engine {
 		gameObj2.transform.translation = { 0.5f, 0.5f, 0.0f };
 		gameObj2.transform.scale = glm::vec3{ 3.0f, 1.5f, 3.0f };
 
-		this->gameObjects.push_back(std::move(gameObj2));
+		this->gameObjects.emplace(gameObj2.getId(), std::move(gameObj2));
 
 		std::shared_ptr<Model> floorModel = Model::createModelFromFile(device, "models/quad.obj");
 		auto floor = GameObject::createGameObject();
@@ -87,7 +87,7 @@ namespace engine {
 		floor.transform.translation = { 0.0f, 0.5f, 0.0f };
 		floor.transform.scale = { 3.0f, 1.0f, 3.0f };
 
-		this->gameObjects.push_back(std::move(floor));
+		this->gameObjects.emplace(floor.getId(), std::move(floor));
 	}
 	auto FirstApp::run() -> void {
 		std::vector<std::unique_ptr<Buffer>> uboBuffers(SwapChain::MAX_FRAMES_IN_FLIGHT);
@@ -103,8 +103,8 @@ namespace engine {
 		}
 
 		auto globalSetLayout = DescriptorSetLayout::Builder(this->device)
-			.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
-			.build();
+			.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)
+			.build(); // VK_SHADER_STAGE_ALL_GRAPHICS = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT
 
 		std::vector<VkDescriptorSet> globalDescriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT);
 		for (int i = 0; i < globalDescriptorSets.size(); i++) {
@@ -147,7 +147,8 @@ namespace engine {
 					frameTime,
 					commandBuffer,
 					camera,
-					globalDescriptorSets[frameIndex]
+					globalDescriptorSets[frameIndex],
+					gameObjects
 				};
 				// update
 				GlobalUniformBufferObject ubo{};
@@ -159,7 +160,7 @@ namespace engine {
 
 				// render
 				this->renderer.beginSwapChainRenderPass(commandBuffer);
-				simpleRenderSystem.renderGameObjects(frameInfo, this->gameObjects);
+				simpleRenderSystem.renderGameObjects(frameInfo);
 				this->renderer.endSwapChainRenderPass(commandBuffer);
 				this->renderer.endFrame();
 			}

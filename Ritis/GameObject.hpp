@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <cinttypes>
+#include <unordered_map>
 
 namespace engine {
 
@@ -100,6 +101,7 @@ namespace engine {
 
 	struct GameObject {
 		using id_t = uint32_t;
+		using Map = std::unordered_map<id_t, GameObject>;
 
 		static GameObject createGameObject() {
 			static id_t currentId = 0;

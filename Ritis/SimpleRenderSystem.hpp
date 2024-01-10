@@ -43,7 +43,7 @@ namespace engine {
 		SimpleRenderSystem(const SimpleRenderSystem&) = delete;
 		SimpleRenderSystem& operator=(const SimpleRenderSystem&) = delete;
 
-		auto renderGameObjects(FrameInfo&, std::vector<GameObject>&) -> void;
+		auto renderGameObjects(FrameInfo&) -> void;
 		auto run() -> void;
 	};
 
@@ -98,8 +98,7 @@ namespace engine {
 		);
 	}
 	auto SimpleRenderSystem::renderGameObjects(
-		FrameInfo& frameInfo,
-		std::vector<GameObject>& gameObjects
+		FrameInfo& frameInfo
 	) -> void {
 		this->pipeline->bind(frameInfo.commandBuffer);
 
@@ -113,7 +112,8 @@ namespace engine {
 			nullptr
 		);
 
-		for (auto& obj : gameObjects) {
+		for (auto& [id, obj] : frameInfo.gameObjects) {
+			if (obj.model == nullptr) continue;
 			SimplePushConstantData push{};
 			push.modelMatrix = obj.transform.mat4();
 			push.normalMatrix = obj.transform.normalMatrix(); // auto convert mat3 -> padded mat4
