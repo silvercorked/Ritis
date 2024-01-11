@@ -99,14 +99,21 @@ namespace engine {
 		}
 	};
 
+	struct PointLightComponent {
+		float lightIntensity = 1.0f;
+	};
+
 	struct GameObject {
 		using id_t = uint32_t;
 		using Map = std::unordered_map<id_t, GameObject>;
 
-		static GameObject createGameObject() {
-			static id_t currentId = 0;
-			return GameObject{ currentId++ };
-		}
+		static auto createGameObject() -> GameObject;
+
+		static auto makePointLight(
+			float intensity = 10.0f,
+			float radius = 0.1f,
+			glm::vec3 color = glm::vec3(1.0f)
+		) -> GameObject;
 
 		GameObject(const GameObject&) = delete;
 		GameObject& operator=(const GameObject&) = delete;
@@ -116,14 +123,34 @@ namespace engine {
 
 		id_t getId() { return id; }
 
-		std::shared_ptr<Model> model{};
 		glm::vec3 color{};
 		TransformComponent transform{};
-		//RigidBodyComponent rigidBody{};
+		
+		// optional
+		std::shared_ptr<Model> model{};
+		std::unique_ptr<PointLightComponent> pointLight = nullptr;
 		
 	private:
 		id_t id;
 		GameObject(id_t objId) : id{ objId } {}
 
 	};
+
+	auto GameObject::createGameObject() -> GameObject {
+		static id_t currentId = 0;
+		return GameObject{ currentId++ };
+	}
+
+	auto GameObject::makePointLight(
+		float intensity,
+		float radius,
+		glm::vec3 color
+	) -> GameObject {
+		GameObject gameObj = GameObject::createGameObject();
+		gameObj.color = color;
+		gameObj.transform.scale.x = radius;
+		gameObj.pointLight = std::make_unique<PointLightComponent>();
+		gameObj.pointLight->lightIntensity = intensity;
+		return gameObj;
+	}
 }

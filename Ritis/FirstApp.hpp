@@ -25,15 +25,6 @@
 constexpr const float MAX_FRAME_TIME = 1.0f;
 
 namespace engine {
-	struct GlobalUniformBufferObject { // automatic alignment (std140 qualified uniform block (https://www.oreilly.com/library/view/opengl-programming-guide/9780132748445/app09lev1sec2.html)
-		alignas(64) glm::mat4 projection{ 1.0f };
-		alignas(64) glm::mat4 view{ 1.0f };
-		alignas(16) glm::vec4 ambientLightColor{ 1.0f, 1.0f, 1.0f, 0.02f };
-		//glm::vec3 lightDirection = glm::normalize(glm::vec3{ 1.0f, -3.0f, -1.0f });
-		alignas(16) glm::vec3 lightPosition{ -1.0f }; // actually aligned as 16
-		alignas(16) glm::vec4 lightColor{ 1.0f }; // w is light intensity. could pack into vec3 { r * i, g * i, b * i }, but then values need to be able to be > 1
-	}; // using alignas to both be explicit and confirm my understanding
-
 	class FirstApp {
 		Window window{ WIDTH, HEIGHT, "Vulkan Learning" };
 		Device device{ window };
@@ -90,6 +81,28 @@ namespace engine {
 		floor.transform.scale = { 3.0f, 1.0f, 3.0f };
 
 		this->gameObjects.emplace(floor.getId(), std::move(floor));
+
+		//auto pointLight = GameObject::makePointLight(0.2f);
+		//this->gameObjects.emplace(pointLight.getId(), std::move(pointLight));
+		std::vector<glm::vec3> lightColors{
+			{1.0f, 0.1f, 0.1f},
+			{0.1f, 0.1f, 1.0f},
+			{0.1f, 1.0f, 0.1f},
+			{1.0f, 1.0f, 0.1f},
+			{0.1f, 1.0f, 1.0f},
+			{1.0f, 1.0f, 1.0f}
+		};
+		for (int i = 0; i < lightColors.size(); i++) {
+			auto pointLight = GameObject::makePointLight(0.2f);
+			pointLight.color = lightColors[i];
+			auto rotateLight = glm::rotate(
+				glm::mat4(1.0f),
+				(i * glm::two_pi<float>()) / lightColors.size(),
+				{0.0f, -1.0f, 0.0f} // axis of rotation (up vector)
+			);
+			pointLight.transform.translation = glm::vec3(rotateLight * glm::vec4(-1.0f, -1.0f, -1.0f, 1.0f));
+			gameObjects.emplace(pointLight.getId(), std::move(pointLight));
+		}
 	}
 	auto FirstApp::run() -> void {
 		std::vector<std::unique_ptr<Buffer>> uboBuffers(SwapChain::MAX_FRAMES_IN_FLIGHT);
@@ -164,10 +177,9 @@ namespace engine {
 				};
 				// update
 				GlobalUniformBufferObject ubo{};
-				//float rotation = glm::cos((static_cast<float>(frameCount++) / 1000.0f));
-				//ubo.lightDirection = glm::normalize(glm::vec3{ 1.0f * rotation, -1.0f, -1.0f * rotation });
 				ubo.projection = camera.getProjection();
 				ubo.view = camera.getView();
+				pointLightSystem.update(frameInfo, ubo);
 				uboBuffers[frameIndex]->writeToBuffer(&ubo);
 				uboBuffers[frameIndex]->flush();
 

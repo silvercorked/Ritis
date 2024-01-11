@@ -20,6 +20,12 @@
 
 namespace engine {
 
+	struct PointLightPushConstants {
+		glm::vec4 position{};
+		glm::vec4 color{};
+		float radius;
+	};
+
 	class PointLightSystem {
 		Device& device;
 
@@ -35,6 +41,7 @@ namespace engine {
 		PointLightSystem(const PointLightSystem&) = delete;
 		PointLightSystem& operator=(const PointLightSystem&) = delete;
 
+		auto update(FrameInfo&, GlobalUniformBufferObject&) -> void;
 		auto render(FrameInfo&) -> void;
 		auto run() -> void;
 	};
@@ -48,10 +55,10 @@ namespace engine {
 	}
 
 	auto PointLightSystem::createPipelineLayout(VkDescriptorSetLayout globalSetLayout) -> void {
-		//VkPushConstantRange pushConstantRange{};
-		//pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT; // both vertex and fragment shader
-		//pushConstantRange.offset = 0;
-		//pushConstantRange.size = sizeof(SimplePushConstantData);
+		VkPushConstantRange pushConstantRange{};
+		pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT; // both vertex and fragment shader
+		pushConstantRange.offset = 0;
+		pushConstantRange.size = sizeof(PointLightPushConstants);
 
 		std::vector<VkDescriptorSetLayout> descriptorSetLayouts{ globalSetLayout };
 
@@ -61,8 +68,8 @@ namespace engine {
 		pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(descriptorSetLayouts.size());
 		pipelineLayoutInfo.pSetLayouts = descriptorSetLayouts.data();
 
-		pipelineLayoutInfo.pushConstantRangeCount = 0;				// method of sending small amounts of data to shader programs
-		pipelineLayoutInfo.pPushConstantRanges = nullptr;
+		pipelineLayoutInfo.pushConstantRangeCount = 1;				// method of sending small amounts of data to shader programs
+		pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
 
 		if (
 			vkCreatePipelineLayout(
@@ -91,6 +98,29 @@ namespace engine {
 			pipelineConfig
 		);
 	}
+	auto PointLightSystem::update(FrameInfo& frameInfo, GlobalUniformBufferObject& ubo) -> void {
+		auto rotateLight = glm::rotate(
+			glm::mat4(1.0f),
+			frameInfo.frameTime,
+			{ 0.0f, -1.0f, 0.0f } // axis of rotation (up vector)
+		);
+
+		int lightIndex = 0;
+		for (auto& [id, obj] : frameInfo.gameObjects) {
+			if (obj.pointLight == nullptr) continue;
+
+			assert(lightIndex < MAX_LIGHTS && "Point Lights Exceed maximum specified");
+
+			// update light position
+			obj.transform.translation = glm::vec3(rotateLight * glm::vec4(obj.transform.translation, 1.0f));
+			
+			// copy light to ubo
+			ubo.pointLights[lightIndex].position = glm::vec4(obj.transform.translation, 1.0f);
+			ubo.pointLights[lightIndex].color = glm::vec4(obj.color, obj.pointLight->lightIntensity);
+			lightIndex++;
+		}
+		ubo.numLights = lightIndex;
+	}
 	auto PointLightSystem::render(
 		FrameInfo& frameInfo
 	) -> void {
@@ -106,7 +136,23 @@ namespace engine {
 			nullptr
 		);
 
-		vkCmdDraw(frameInfo.commandBuffer, 6, 1, 0, 0);
+		for (auto& [id, obj] : frameInfo.gameObjects) {
+			if (obj.pointLight == nullptr) continue;
+
+			PointLightPushConstants push{};
+			push.position = glm::vec4(obj.transform.translation, 1.0f);
+			push.color = glm::vec4(obj.color, obj.pointLight->lightIntensity);
+			push.radius = obj.transform.scale.x;
+
+			vkCmdPushConstants(
+				frameInfo.commandBuffer,
+				this->pipelineLayout,
+				VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+				0,
+				sizeof(PointLightPushConstants),
+				&push
+			);
+			vkCmdDraw(frameInfo.commandBuffer, 6, 1, 0, 0);
+		}
 	}
 }
-
