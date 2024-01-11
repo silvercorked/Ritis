@@ -3,7 +3,8 @@
 #include "Window.hpp"
 #include "GameObject.hpp"
 #include "Renderer.hpp"
-#include "SimpleRenderSystem.hpp"
+#include "systems/SimpleRenderSystem.hpp"
+#include "systems/PointLightSystem.hpp"
 #include "Buffer.hpp"
 #include "Camera.hpp"
 #include "KeyboardMovementController.hpp"
@@ -25,7 +26,8 @@ constexpr const float MAX_FRAME_TIME = 1.0f;
 
 namespace engine {
 	struct GlobalUniformBufferObject { // automatic alignment (std140 qualified uniform block (https://www.oreilly.com/library/view/opengl-programming-guide/9780132748445/app09lev1sec2.html)
-		alignas(64) glm::mat4 projectionView{ 1.0f };
+		alignas(64) glm::mat4 projection{ 1.0f };
+		alignas(64) glm::mat4 view{ 1.0f };
 		alignas(16) glm::vec4 ambientLightColor{ 1.0f, 1.0f, 1.0f, 0.02f };
 		//glm::vec3 lightDirection = glm::normalize(glm::vec3{ 1.0f, -3.0f, -1.0f });
 		alignas(16) glm::vec3 lightPosition{ -1.0f }; // actually aligned as 16
@@ -114,7 +116,17 @@ namespace engine {
 				.build(globalDescriptorSets[i]);
 		}
 
-		SimpleRenderSystem simpleRenderSystem{ this->device, this->renderer.getSwapChainRenderPass(), globalSetLayout->getDescriptorSetLayout() };
+		SimpleRenderSystem simpleRenderSystem{
+			this->device,
+			this->renderer.getSwapChainRenderPass(),
+			globalSetLayout->getDescriptorSetLayout()
+		};
+		PointLightSystem pointLightSystem{
+			this->device,
+			this->renderer.getSwapChainRenderPass(),
+			globalSetLayout->getDescriptorSetLayout()
+		};
+
 		Camera camera{};
 		camera.setViewTarget(glm::vec3(-1.0f, -2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 2.5f));
 
@@ -154,13 +166,15 @@ namespace engine {
 				GlobalUniformBufferObject ubo{};
 				//float rotation = glm::cos((static_cast<float>(frameCount++) / 1000.0f));
 				//ubo.lightDirection = glm::normalize(glm::vec3{ 1.0f * rotation, -1.0f, -1.0f * rotation });
-				ubo.projectionView = camera.getProjection() * camera.getView();
+				ubo.projection = camera.getProjection();
+				ubo.view = camera.getView();
 				uboBuffers[frameIndex]->writeToBuffer(&ubo);
 				uboBuffers[frameIndex]->flush();
 
 				// render
 				this->renderer.beginSwapChainRenderPass(commandBuffer);
 				simpleRenderSystem.renderGameObjects(frameInfo);
+				pointLightSystem.render(frameInfo);
 				this->renderer.endSwapChainRenderPass(commandBuffer);
 				this->renderer.endFrame();
 			}

@@ -113,6 +113,9 @@
       <AdditionalLibraryDirectories>C:\bigDriveMountedFolder\projects\libraries\glfw-3.3.8.bin.WIN64\lib-vc2022;C:\VulkanSDK\1.3.250.1\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>vulkan-1.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PreBuildEvent>
+      <Command>call $(ProjectDir)compile.bat</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -133,6 +136,9 @@
       <AdditionalLibraryDirectories>C:\bigDriveMountedFolder\projects\libraries\glfw-3.3.8.bin.WIN64\lib-vc2022;C:\VulkanSDK\1.3.250.1\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>vulkan-1.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PreBuildEvent>
+      <Command>call $(ProjectDir)compile.bat</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
@@ -149,7 +155,8 @@
     <ClInclude Include="Device.hpp" />
     <ClInclude Include="Model.hpp" />
     <ClInclude Include="Renderer.hpp" />
-    <ClInclude Include="SimpleRenderSystem.hpp" />
+    <ClInclude Include="systems\PointLightSystem.hpp" />
+    <ClInclude Include="systems\SimpleRenderSystem.hpp" />
     <ClInclude Include="SwapChain.hpp" />
     <ClInclude Include="Utils.hpp" />
     <ClInclude Include="Window.hpp" />
@@ -159,6 +166,8 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="compile.bat" />
+    <None Include="shaders\pointLight.frag" />
+    <None Include="shaders\pointLight.vert" />
     <None Include="shaders\simpleShader.frag" />
     <None Include="shaders\simpleShader.vert" />
   </ItemGroup>

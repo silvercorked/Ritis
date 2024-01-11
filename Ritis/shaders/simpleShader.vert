@@ -11,7 +11,8 @@ layout(location = 1) out vec3 fragPosWorld;
 layout(location = 2) out vec3 fragNormalWorld;
 
 layout(set = 0, binding = 0) uniform GlobalUbo {
-	mat4 projectionViewMatrix;
+	mat4 projection;
+	mat4 view;
 	vec4 ambientLightColor; // w is intensity
 	vec3 lightPosition;
 	vec4 lightColor; // w is intensity
@@ -30,7 +31,7 @@ void main() {
 	//  (-1, 1)        (1, 1)
 	// gl_Position = vec4(push.transform * position + push.offset, 0.0, 1.0); // x, y, z, w
 	vec4 positionWorld = push.modelMatrix * vec4(position, 1.0); // vertex position in world space (from model space)
-	gl_Position = ubo.projectionViewMatrix * positionWorld; // 1 is homogenous coordinate. if position was direction vector, could use 0 to avoid affect of translation
+	gl_Position = ubo.projection * ubo.view * positionWorld; // 1 is homogenous coordinate. if position was direction vector, could use 0 to avoid affect of translation
 
 	fragNormalWorld = normalize(mat3(push.normalMatrix) * normal);
 	fragPosWorld = positionWorld.xyz;

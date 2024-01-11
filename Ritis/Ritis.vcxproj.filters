@@ -44,7 +44,7 @@
     <ClInclude Include="Renderer.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="SimpleRenderSystem.hpp">
+    <ClInclude Include="systems\SimpleRenderSystem.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Camera.hpp">
@@ -65,6 +65,9 @@
     <ClInclude Include="Descriptors.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="systems\PointLightSystem.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Text Include="notes.txt" />
@@ -75,5 +78,7 @@
     <None Include="compile.bat">
       <Filter>Source Files</Filter>
     </None>
+    <None Include="shaders\pointLight.vert" />
+    <None Include="shaders\pointLight.frag" />
   </ItemGroup>
 </Project>

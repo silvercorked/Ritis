@@ -1,9 +1,9 @@
 #pragma once
 
-#include "Device.hpp"
-#include "Pipeline.hpp"
-#include "GameObject.hpp"
-#include "FrameInfo.hpp"
+#include "../Device.hpp"
+#include "../Pipeline.hpp"
+#include "../GameObject.hpp"
+#include "../FrameInfo.hpp"
 
 #define GLM_FORCE_RADIANS					// functions expect radians, not degrees
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE			// Depth buffer values will range from 0 to 1, not -1 to 1
@@ -16,7 +16,7 @@
 #include <stdexcept>
 #include <array>
 
-#include "Camera.hpp"
+#include "../Camera.hpp"
 
 namespace engine {
 
