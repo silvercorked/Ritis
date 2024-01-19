@@ -133,6 +133,7 @@ namespace engine {
 	class Camera {
 		glm::mat4 projectionMatrix{1.0f};
 		glm::mat4 viewMatrix{1.0f};
+		glm::mat4 inverseViewMatrix{ 1.0f };
 
 	public:
 		auto setOrthographicProjection(float left, float right, float top, float bottom, float near, float far) -> void;
@@ -144,6 +145,7 @@ namespace engine {
 
 		auto getProjection() const -> const glm::mat4& { return this->projectionMatrix; }
 		auto getView() const -> const glm::mat4& { return this->viewMatrix; }
+		auto getInverseView() const -> const glm::mat4& { return this->inverseViewMatrix; }
 	};
 
 	auto Camera::setOrthographicProjection(float left, float right, float top, float bottom, float near, float far) -> void {
@@ -192,6 +194,20 @@ namespace engine {
 		this->viewMatrix[3][0] = -glm::dot(u, position);
 		this->viewMatrix[3][1] = -glm::dot(v, position);
 		this->viewMatrix[3][2] = -glm::dot(w, position);
+
+		this->inverseViewMatrix = glm::mat4{ 1.0f };
+		this->inverseViewMatrix[0][0] = u.x;
+		this->inverseViewMatrix[0][1] = u.y;
+		this->inverseViewMatrix[0][2] = u.z;
+		this->inverseViewMatrix[1][0] = v.x;
+		this->inverseViewMatrix[1][1] = v.y;
+		this->inverseViewMatrix[1][2] = v.z;
+		this->inverseViewMatrix[2][0] = w.x;
+		this->inverseViewMatrix[2][1] = w.y;
+		this->inverseViewMatrix[2][2] = w.z;
+		this->inverseViewMatrix[3][0] = position.x;
+		this->inverseViewMatrix[3][1] = position.y;
+		this->inverseViewMatrix[3][2] = position.z;
 	}
 	auto Camera::setViewTarget(glm::vec3 position, glm::vec3 target, glm::vec3 up) -> void {
 		this->setViewDirection(position, target - position, up);
@@ -219,5 +235,19 @@ namespace engine {
 		this->viewMatrix[3][0] = -glm::dot(u, position);
 		this->viewMatrix[3][1] = -glm::dot(v, position);
 		this->viewMatrix[3][2] = -glm::dot(w, position);
+
+		this->inverseViewMatrix = glm::mat4{ 1.0f };
+		this->inverseViewMatrix[0][0] = u.x;
+		this->inverseViewMatrix[0][1] = u.y;
+		this->inverseViewMatrix[0][2] = u.z;
+		this->inverseViewMatrix[1][0] = v.x;
+		this->inverseViewMatrix[1][1] = v.y;
+		this->inverseViewMatrix[1][2] = v.z;
+		this->inverseViewMatrix[2][0] = w.x;
+		this->inverseViewMatrix[2][1] = w.y;
+		this->inverseViewMatrix[2][2] = w.z;
+		this->inverseViewMatrix[3][0] = position.x;
+		this->inverseViewMatrix[3][1] = position.y;
+		this->inverseViewMatrix[3][2] = position.z;
 	}
 }

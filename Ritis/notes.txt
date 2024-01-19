@@ -106,3 +106,12 @@ Push Constants (alternative to descriptor sets and uniform buffers)
 				- the rays of light are "attenuated"
 			- brightness of a vertex given a point light is proportional to inv distance sqaured (1/(distance^2))
 			- but some use a constant, linear, and quadratic term to achieve an artistic look (1/(c+l*distance+q*distance^2))
+
+	Specular Models
+		- Lambertian lighting model handles diffuse lighting and is viewer perspective independent but no specular
+		- phong, blinn-phong, and gaussian specular models append onto Lambertian by adding specular light approximation
+			- phong and blinn-phong both make up distributions, but guassian is more physically-based
+			- phong and blinn-phong are easy to compute and guassian is hard to compute
+			- phong fails to account for specular light produced when the angle from the reflected light and the viewer is greater than 90 degrees
+				- blinn-phong corrects this using the half angle vector
+		- control terms are often added to control the strength of lighting types (or as a parameter of the materials)

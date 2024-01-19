@@ -11,6 +11,7 @@ struct PointLight {
 layout(set = 0, binding = 0) uniform GlobalUbo {
 	mat4 projection;
 	mat4 view;
+	mat4 inverseView;
 	vec4 ambientLightColor; // w is intensity
 	PointLight pointLights[10]; // could replace 10 with specialization constant at pipeline creation time
 	int numLights;
@@ -25,7 +26,7 @@ layout(push_constant) uniform Push {
 void main() {
 	float distance = sqrt(dot(fragOffset, fragOffset));
 	if (distance >= 1.0) {
-		discard;
+		discard; // fragment shader only keyword to ignore a fragment for rendering
 	}
 	outColor = vec4(push.color.xyz, 1.0);
 }
