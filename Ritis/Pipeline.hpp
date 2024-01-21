@@ -12,6 +12,7 @@
 
 namespace engine {
 	struct PipelineConfigInfo {
+
 		PipelineConfigInfo() = default;
 		PipelineConfigInfo(const PipelineConfigInfo&) = delete;
 		PipelineConfigInfo& operator=(const PipelineConfigInfo&) = delete;
@@ -48,6 +49,7 @@ namespace engine {
 
 		auto bind(VkCommandBuffer commandBuffer) -> void;
 		static auto defaultPipelineConfigInfo(PipelineConfigInfo& configInfo) -> void;
+		static auto enableAlphaBlending(PipelineConfigInfo& configInfo) -> void;
 	};
 
 	Pipeline::Pipeline(
@@ -253,5 +255,21 @@ namespace engine {
 
 		configInfo.bindingDescriptions = Model::Vertex::getBindingDescriptions();
 		configInfo.attributeDescriptions = Model::Vertex::getAttributeDescriptions();
+	}
+	auto Pipeline::enableAlphaBlending(PipelineConfigInfo& configInfo) -> void {
+		configInfo.colorBlendAttachement.blendEnable = VK_TRUE;
+		// src is output from frag shader
+		// dst is whatever exists in the color attachment (such as something already rendered)
+		configInfo.colorBlendAttachement.colorWriteMask =
+			VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+		// color.rgb = (src.alpha x scr.rgb) + ((1 - src.alpha) x dst.rgb)
+		// this works if rendering from farthest to closest (order irrelavent for solids, but needed for transparents)
+		// there are cases where this doesn't work. See order-independnt transparency (https://en.wikipedia.org/wiki/Order-independent_transparency) for ideas for improvement here
+		configInfo.colorBlendAttachement.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+		configInfo.colorBlendAttachement.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+		configInfo.colorBlendAttachement.colorBlendOp = VK_BLEND_OP_ADD; // additive blending
+		configInfo.colorBlendAttachement.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;	// last three aren't super important for now
+		configInfo.colorBlendAttachement.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+		configInfo.colorBlendAttachement.alphaBlendOp = VK_BLEND_OP_ADD; // additive alpha blending
 	}
 }

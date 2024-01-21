@@ -146,6 +146,7 @@ namespace engine {
 		auto getProjection() const -> const glm::mat4& { return this->projectionMatrix; }
 		auto getView() const -> const glm::mat4& { return this->viewMatrix; }
 		auto getInverseView() const -> const glm::mat4& { return this->inverseViewMatrix; }
+		auto getPosition() const -> const glm::vec3 { return glm::vec3(this->inverseViewMatrix[3]); }
 	};
 
 	auto Camera::setOrthographicProjection(float left, float right, float top, float bottom, float near, float far) -> void {

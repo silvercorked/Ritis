@@ -23,10 +23,14 @@ layout(push_constant) uniform Push {
 	float radius;
 } push;
 
+const float M_PI = 3.1415926538;
+
 void main() {
 	float distance = sqrt(dot(fragOffset, fragOffset));
 	if (distance >= 1.0) {
 		discard; // fragment shader only keyword to ignore a fragment for rendering
 	}
-	outColor = vec4(push.color.xyz, 1.0);
+	float cosDis = 0.5 * (cos(distance * M_PI) + 1);
+	outColor = vec4(push.color.xyz + cosDis, cosDis);
+	// increase alpha closer to 0 distance from point-light point
 }

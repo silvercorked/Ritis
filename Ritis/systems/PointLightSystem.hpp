@@ -15,6 +15,7 @@
 #include <vector>
 #include <stdexcept>
 #include <array>
+#include <map>
 
 #include "../Camera.hpp"
 
@@ -87,6 +88,7 @@ namespace engine {
 		// use swapchain width and height because they don't necessarily match the window
 		PipelineConfigInfo pipelineConfig{};
 		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
+		Pipeline::enableAlphaBlending(pipelineConfig);
 		pipelineConfig.attributeDescriptions.clear();
 		pipelineConfig.bindingDescriptions.clear();
 		pipelineConfig.renderPass = renderPass; // render pass describes structure and format of frame buffer objects
@@ -124,6 +126,14 @@ namespace engine {
 	auto PointLightSystem::render(
 		FrameInfo& frameInfo
 	) -> void {
+		std::map<float, GameObject::id_t> sorted;
+		for (auto& [id, obj] : frameInfo.gameObjects) { // sort point lights by distance to always render back to front, allowing transparency
+			if (obj.pointLight == nullptr) continue;	// if rendering front to back, then depth buffer (filled with front elements) will cause discarding of back elements
+			// calculate distance						// making it look like nothing is behind and not really being transparent
+			auto offset = frameInfo.camera.getPosition() - obj.transform.translation;
+			float distSquared = glm::dot(offset, offset); // squared distance but close enough for sorting by distance purposes
+			sorted[distSquared] = obj.getId();
+		}
 		this->pipeline->bind(frameInfo.commandBuffer);
 
 		vkCmdBindDescriptorSets(
@@ -136,8 +146,10 @@ namespace engine {
 			nullptr
 		);
 
-		for (auto& [id, obj] : frameInfo.gameObjects) {
-			if (obj.pointLight == nullptr) continue;
+		// iterate through sorted lights in reverse order (back to front)
+		for (auto it = sorted.rbegin(); it != sorted.rend(); it++) {
+			// use game obj id to find light object
+			auto& obj = frameInfo.gameObjects.at(it->second);
 
 			PointLightPushConstants push{};
 			push.position = glm::vec4(obj.transform.translation, 1.0f);

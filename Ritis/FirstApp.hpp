@@ -186,7 +186,9 @@ namespace engine {
 
 				// render
 				this->renderer.beginSwapChainRenderPass(commandBuffer);
-				simpleRenderSystem.renderGameObjects(frameInfo);
+				// order matters here (for transparency)
+				simpleRenderSystem.renderGameObjects(frameInfo); // solids first
+
 				pointLightSystem.render(frameInfo);
 				this->renderer.endSwapChainRenderPass(commandBuffer);
 				this->renderer.endFrame();
